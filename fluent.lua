@@ -1,7 +1,7 @@
 --========================================================
--- 🎃 MANI PUMPKIN ROBO V.3.5
--- BULLETPROOF: Character walks invisible, robot mirrors HRP
--- Default Roblox camera | Works PC + Mobile + Gamepad
+-- 🎃 MANI PUMPKIN ROBO V.3.6
+-- Player STAYS VISIBLE | Control transfers to robot
+-- LIVE feature changes | Own camera + own input
 --========================================================
 
 repeat task.wait() until game:IsLoaded()
@@ -38,7 +38,7 @@ local SLOTS = {
 }
 
 --========================================================
--- BASE OFFSETS (bottom of legs = 0, grows UP)
+-- BASE OFFSETS
 --========================================================
 local BASE_OFFSETS = {
     Head           = Vector3.new( 0,    7.9, 0),
@@ -63,7 +63,7 @@ local PART_CORRECTION = {
 local HIP_Y = 2.7
 
 --========================================================
--- SETTINGS
+-- SETTINGS (LIVE — editable anytime)
 --========================================================
 local robotHeight    = 1
 local propDistance   = 1
@@ -73,15 +73,104 @@ local controlEnabled = false
 local headFollowCam  = true
 
 local registeredProps = {}
-local robotCenter, robotRotation = nil, nil
+local robotCenter, robotRotation, robotAnchor = nil, nil, nil
 local movementConnection, renderConnection = nil, nil
 
 local animClock, moveAmount = 0, 0
-local jumpState = "Ground"
+local jumpState, jumpVelocity, verticalOffset = "Ground", 0, 0
 local ANIMATION_RATE = 1/30
 local animationAccumulator = 0
 
-local hiddenState = {}
+--========================================================
+-- INPUT (keyboard state — fallback)
+--========================================================
+local keys = {W=false, A=false, S=false, D=false}
+
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.W then keys.W = true end
+    if input.KeyCode == Enum.KeyCode.A then keys.A = true end
+    if input.KeyCode == Enum.KeyCode.S then keys.S = true end
+    if input.KeyCode == Enum.KeyCode.D then keys.D = true end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.W then keys.W = false end
+    if input.KeyCode == Enum.KeyCode.A then keys.A = false end
+    if input.KeyCode == Enum.KeyCode.S then keys.S = false end
+    if input.KeyCode == Enum.KeyCode.D then keys.D = false end
+end)
+
+-- PlayerModule for mobile joystick
+local Controls = nil
+
+local function setupControls()
+    local ok, pm = pcall(function()
+        return require(player:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule", 10))
+    end)
+    if ok and pm then
+        local ok2, c = pcall(function() return pm:GetControls() end)
+        if ok2 then Controls = c end
+    end
+end
+
+setupControls()
+
+-- Read mobile thumbstick directly (fallback if PlayerModule fails)
+local function getMobileThumbstick()
+    local touchGui = player:FindFirstChild("PlayerGui")
+    if not touchGui then return Vector3.zero end
+    touchGui = touchGui:FindFirstChild("TouchGui")
+    if not touchGui then return Vector3.zero end
+    local frame = touchGui:FindFirstChild("TouchControlFrame")
+    if not frame then return Vector3.zero end
+    local stick = frame:FindFirstChild("Thumbstick")
+    if not stick then return Vector3.zero end
+    local knob = stick:FindFirstChild("Thumbstick")
+    if not knob then return Vector3.zero end
+
+    local center = stick.AbsolutePosition + stick.AbsoluteSize/2
+    local pos    = knob.AbsolutePosition + knob.AbsoluteSize/2
+    local delta  = pos - center
+    local radius = stick.AbsoluteSize.X / 2
+    return Vector3.new(delta.X / radius, 0, -delta.Y / radius)
+end
+
+local function getInputVector()
+    -- Try PlayerModule
+    if Controls then
+        local ok, mv = pcall(function() return Controls:GetMoveVector() end)
+        if ok and mv and mv.Magnitude > 0.05 then
+            return mv
+        end
+    end
+
+    -- Try mobile thumbstick directly
+    local mobile = getMobileThumbstick()
+    if mobile.Magnitude > 0.05 then
+        return Vector3.new(mobile.X, 0, mobile.Z)
+    end
+
+    -- Keyboard fallback
+    local v = Vector3.zero
+    if keys.W then v = v + Vector3.new(0, 0, -1) end
+    if keys.S then v = v + Vector3.new(0, 0, 1) end
+    if keys.A then v = v + Vector3.new(-1, 0, 0) end
+    if keys.D then v = v + Vector3.new(1, 0, 0) end
+    if v.Magnitude > 1 then v = v.Unit end
+    return v
+end
+
+--========================================================
+-- CAMERA STATE
+--========================================================
+local camYaw, camPitch, camDist = 0, 12, 18
+local targetCamYaw, targetCamPitch, targetCamDist = 0, 12, 18
+local cameraDragging = false
+local camDragStart, camYawStart, camPitchStart
+
+local CAM_MIN_DIST, CAM_MAX_DIST = 4, 120
+local CAM_MIN_PITCH, CAM_MAX_PITCH = -70, 70
 
 --========================================================
 -- GUI
@@ -112,7 +201,7 @@ local title = Instance.new("TextLabel")
 title.BackgroundTransparency = 1
 title.Position = UDim2.fromOffset(8, 3)
 title.Size = UDim2.new(1, -60, 0, 28)
-title.Text = "🎃 MANI PUMPKIN V.3.5"
+title.Text = "🎃 MANI PUMPKIN V.3.6"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.TextSize = 10
 title.Font = Enum.Font.GothamBold
@@ -141,6 +230,7 @@ close.BorderSizePixel = 0
 close.Parent = titleBar
 Instance.new("UICorner", close).CornerRadius = UDim.new(0, 6)
 
+-- Drag GUI
 local guiDragging, guiDragStart, guiStartPosition = false, nil, nil
 titleBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1
@@ -274,7 +364,7 @@ cameraInfo.Position = UDim2.fromOffset(4, 424)
 cameraInfo.Size = UDim2.new(1, -8, 0, 48)
 cameraInfo.BackgroundColor3 = Color3.fromRGB(24, 24, 29)
 cameraInfo.BorderSizePixel = 0
-cameraInfo.Text = "DEFAULT CAMERA\nPC: RMB Drag • Wheel Zoom\nMobile: Drag • Pinch Zoom"
+cameraInfo.Text = "CAMERA\nPC: RMB Drag • Wheel\nMobile: Drag • Pinch"
 cameraInfo.TextColor3 = Color3.fromRGB(160, 160, 170)
 cameraInfo.TextSize = 8
 cameraInfo.Font = Enum.Font.GothamMedium
@@ -351,7 +441,7 @@ local function loadProps()
 end
 
 --========================================================
--- BODY CFRAME
+-- CFRAME HELPERS
 --========================================================
 local function bodyCFrame(offset, slot, rotationOffset, extraOffset)
     extraOffset    = extraOffset or Vector3.zero
@@ -370,9 +460,6 @@ local function bodyCFrame(offset, slot, rotationOffset, extraOffset)
     return CFrame.new(pos, pos + forward) * correction * rotationOffset
 end
 
---========================================================
--- LEG CFRAME (rotate 3 parts around hip)
---========================================================
 local function legBodyCFrame(offset, angle, extraOffset)
     extraOffset = extraOffset or Vector3.zero
 
@@ -443,7 +530,7 @@ local function rebuildRobot()
 end
 
 --========================================================
--- CONTROLS
+-- ✅ LIVE FEATURE BUTTONS (apply immediately, even during control)
 --========================================================
 heightMinus.MouseButton1Click:Connect(function()
     robotHeight = math.max(0.5, robotHeight - 0.1)
@@ -466,31 +553,19 @@ end)
 speedMinus.MouseButton1Click:Connect(function()
     walkSpeed = math.max(5, walkSpeed - 5)
     speedLabel.Text = "WALK SPD: " .. walkSpeed
-    if controlEnabled and humanoid then
-        humanoid.WalkSpeed = walkSpeed
-    end
 end)
 speedPlus.MouseButton1Click:Connect(function()
     walkSpeed = math.min(100, walkSpeed + 5)
     speedLabel.Text = "WALK SPD: " .. walkSpeed
-    if controlEnabled and humanoid then
-        humanoid.WalkSpeed = walkSpeed
-    end
 end)
 
 jumpMinus.MouseButton1Click:Connect(function()
     jumpPower = math.max(20, jumpPower - 5)
     jumpLabel.Text = "JUMP PWR: " .. jumpPower
-    if controlEnabled and humanoid then
-        humanoid.JumpPower = jumpPower
-    end
 end)
 jumpPlus.MouseButton1Click:Connect(function()
     jumpPower = math.min(150, jumpPower + 5)
     jumpLabel.Text = "JUMP PWR: " .. jumpPower
-    if controlEnabled and humanoid then
-        humanoid.JumpPower = jumpPower
-    end
 end)
 
 headToggle.MouseButton1Click:Connect(function()
@@ -499,15 +574,92 @@ headToggle.MouseButton1Click:Connect(function()
 end)
 
 --========================================================
--- HEAD YAW (360° follow camera)
+-- ANCHOR
+--========================================================
+local function createAnchor()
+    if robotAnchor then robotAnchor:Destroy() end
+    robotAnchor = Instance.new("Part")
+    robotAnchor.Name = "MANI_ROBO_ANCHOR"
+    robotAnchor.Size = Vector3.new(2, 4, 2)
+    robotAnchor.Transparency = 1
+    robotAnchor.Anchored = true
+    robotAnchor.CanCollide = false
+    robotAnchor.CanTouch = false
+    robotAnchor.CanQuery = false
+    robotAnchor.CFrame = robotRotation
+    robotAnchor.Parent = workspace
+end
+
+--========================================================
+-- JUMP
+--========================================================
+UserInputService.JumpRequest:Connect(function()
+    if not controlEnabled then return end
+    if jumpState ~= "Ground" then return end
+    jumpState    = "Jump"
+    jumpVelocity = jumpPower
+end)
+
+--========================================================
+-- ✅ MOVEMENT (uses own input reader)
+--========================================================
+local function startMovement()
+    if movementConnection then movementConnection:Disconnect() end
+
+    movementConnection = RunService.Heartbeat:Connect(function(dt)
+        if not controlEnabled or not robotAnchor then return end
+
+        -- Get input (PlayerModule → mobile thumbstick → keyboard)
+        local raw = getInputVector()
+
+        -- Convert to camera-relative world direction
+        local camLook  = camera.CFrame.LookVector
+        local camRight = camera.CFrame.RightVector
+        camLook  = Vector3.new(camLook.X, 0, camLook.Z)
+        camRight = Vector3.new(camRight.X, 0, camRight.Z)
+        if camLook.Magnitude > 0.01 then camLook = camLook.Unit end
+        if camRight.Magnitude > 0.01 then camRight = camRight.Unit end
+
+        -- raw.Z = forward/back, raw.X = strafe
+        local worldDir = camLook * (-raw.Z) + camRight * raw.X
+
+        if worldDir.Magnitude > 0.05 then
+            worldDir = worldDir.Unit
+            local newPos = robotAnchor.Position + worldDir * walkSpeed * dt
+            local target = CFrame.lookAt(newPos, newPos + worldDir)
+            robotAnchor.CFrame = robotAnchor.CFrame:Lerp(target, math.clamp(12 * dt, 0, 1))
+            moveAmount = math.clamp(moveAmount + dt * 7, 0, 1)
+        else
+            moveAmount = math.clamp(moveAmount - dt * 8, 0, 1)
+        end
+
+        -- Jump physics
+        if jumpState == "Jump" then
+            jumpVelocity -= 100 * dt
+            verticalOffset += jumpVelocity * dt
+            if verticalOffset <= 0 then
+                verticalOffset = 0
+                jumpVelocity = 0
+                jumpState = "Ground"
+            end
+        end
+
+        robotCenter   = robotAnchor.Position + Vector3.new(0, verticalOffset, 0)
+        robotRotation = robotAnchor.CFrame
+    end)
+end
+
+--========================================================
+-- HEAD YAW
 --========================================================
 local function getHeadYaw()
+    if not robotAnchor then return 0 end
     local camLook = camera.CFrame.LookVector
     camLook = Vector3.new(camLook.X, 0, camLook.Z)
     if camLook.Magnitude < 0.01 then return 0 end
     camLook = camLook.Unit
 
-    local robotLook = hrp.CFrame.LookVector
+    local robotLook = robotAnchor.CFrame.LookVector
     robotLook = Vector3.new(robotLook.X, 0, robotLook.Z)
     if robotLook.Magnitude < 0.01 then return 0 end
     robotLook = robotLook.Unit
@@ -518,70 +670,7 @@ local function getHeadYaw()
 end
 
 --========================================================
--- HIDE / SHOW CHARACTER
---========================================================
-local function hideCharacter()
-    hiddenState = {}
-    for _, part in ipairs(character:GetDescendants()) do
-        if part:IsA("BasePart") then
-            hiddenState[part] = {t = part.Transparency, c = part.CanCollide, q = part.CanQuery}
-            part.Transparency = 1
-            part.CanCollide = false
-            part.CanQuery = false
-        elseif part:IsA("Decal") or part:IsA("Texture") then
-            hiddenState[part] = {t = part.Transparency}
-            part.Transparency = 1
-        end
-    end
-end
-
-local function showCharacter()
-    for part, s in pairs(hiddenState) do
-        if part and part.Parent then
-            part.Transparency = s.t
-            if part:IsA("BasePart") then
-                part.CanCollide = s.c or false
-                part.CanQuery = s.q or true
-            end
-        end
-    end
-    hiddenState = {}
-end
-
---========================================================
--- ✅ MIRROR MOVEMENT — Character walks, robot follows
---========================================================
-local function startMovement()
-    if movementConnection then movementConnection:Disconnect() end
-
-    movementConnection = RunService.Heartbeat:Connect(function(dt)
-        if not controlEnabled then return end
-        if not hrp or not hrp.Parent then return end
-
-        -- ✅ Robot position = character position (mirror)
-        robotCenter   = hrp.Position
-        robotRotation = hrp.CFrame
-
-        -- Detect movement for animation (MoveDirection works because HRP is FREE)
-        local dir = humanoid.MoveDirection
-        local flat = Vector3.new(dir.X, 0, dir.Z)
-        if flat.Magnitude > 0.05 then
-            moveAmount = math.clamp(moveAmount + dt * 7, 0, 1)
-        else
-            moveAmount = math.clamp(moveAmount - dt * 8, 0, 1)
-        end
-
-        -- Detect jump via FloorMaterial
-        if humanoid.FloorMaterial == Enum.Material.Air then
-            jumpState = "Jump"
-        else
-            jumpState = "Ground"
-        end
-    end)
-end
-
---========================================================
--- ANIMATION
+-- ANIMATION (reads LIVE variables every frame)
 --========================================================
 local function updateAnimation(dt)
     if not controlEnabled or not robotCenter then return end
@@ -671,34 +760,141 @@ local function updateAnimation(dt)
 end
 
 --========================================================
+-- CAMERA INPUT
+--========================================================
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp or not controlEnabled then return end
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        cameraDragging = true
+        camDragStart   = input.Position
+        camYawStart    = targetCamYaw
+        camPitchStart  = targetCamPitch
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if not controlEnabled then return end
+
+    if input.UserInputType == Enum.UserInputType.MouseMovement and cameraDragging then
+        local d = input.Position - camDragStart
+        targetCamYaw   = camYawStart - d.X * 0.4
+        targetCamPitch = math.clamp(camPitchStart - d.Y * 0.3, CAM_MIN_PITCH, CAM_MAX_PITCH)
+    end
+
+    if input.UserInputType == Enum.UserInputType.MouseWheel then
+        targetCamDist = math.clamp(targetCamDist - input.Position.Z * 3, CAM_MIN_DIST, CAM_MAX_DIST)
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        cameraDragging = false
+    end
+end)
+
+-- Mobile camera
+local mobileTouchId  = nil
+local mobilePinching = false
+local pinchStartDist, pinchStartZoom = 0, 0
+local secondTouch    = nil
+
+UserInputService.TouchStarted:Connect(function(touch)
+    if not controlEnabled then return end
+    -- Right side of screen = camera
+    if touch.Position.X > camera.ViewportSize.X * 0.35 then
+        if not mobileTouchId then
+            mobileTouchId  = touch
+            camDragStart   = touch.Position
+            camYawStart    = targetCamYaw
+            camPitchStart  = targetCamPitch
+        elseif not secondTouch then
+            secondTouch    = touch
+            mobilePinching = true
+            pinchStartDist = (mobileTouchId.Position - secondTouch.Position).Magnitude
+            pinchStartZoom = targetCamDist
+        end
+    end
+end)
+
+UserInputService.TouchMoved:Connect(function(touch)
+    if not controlEnabled then return end
+
+    if touch == mobileTouchId and not mobilePinching then
+        local d = touch.Position - camDragStart
+        targetCamYaw   = camYawStart - d.X * 0.4
+        targetCamPitch = math.clamp(camPitchStart - d.Y * 0.3, CAM_MIN_PITCH, CAM_MAX_PITCH)
+    elseif mobilePinching and mobileTouchId and secondTouch then
+        local p1 = (touch == mobileTouchId) and touch.Position or mobileTouchId.Position
+        local p2 = (touch == secondTouch)   and touch.Position or secondTouch.Position
+        local d = (p1 - p2).Magnitude
+        if pinchStartDist > 0 then
+            targetCamDist = math.clamp(pinchStartZoom * (pinchStartDist / d), CAM_MIN_DIST, CAM_MAX_DIST)
+        end
+    end
+end)
+
+UserInputService.TouchEnded:Connect(function(touch)
+    if touch == mobileTouchId then
+        mobileTouchId = nil
+        if secondTouch then
+            mobileTouchId = secondTouch
+            secondTouch = nil
+            camDragStart = mobileTouchId.Position
+            camYawStart  = targetCamYaw
+            camPitchStart= targetCamPitch
+        end
+        mobilePinching = false
+    elseif touch == secondTouch then
+        secondTouch = nil
+        mobilePinching = false
+    end
+end)
+
+local function updateCamera(dt)
+    if not controlEnabled or not robotAnchor then return end
+
+    camYaw   = camYaw   + (targetCamYaw   - camYaw)   * math.clamp(10 * dt, 0, 1)
+    camPitch = camPitch + (targetCamPitch - camPitch) * math.clamp(10 * dt, 0, 1)
+    camDist  = camDist  + (targetCamDist  - camDist)  * math.clamp(8  * dt, 0, 1)
+
+    local center = robotAnchor.Position + Vector3.new(0, 3.2 * robotHeight, 0)
+
+    local rot = CFrame.Angles(0, math.rad(camYaw), 0)
+              * CFrame.Angles(math.rad(camPitch), 0, 0)
+
+    local desired = center - rot.LookVector * camDist
+    camera.CFrame = CFrame.lookAt(desired, center)
+end
+
+--========================================================
 -- START / STOP CONTROL
 --========================================================
 local function startControl()
     if not robotCenter then assembleRobot() end
     if not robotCenter then return end
 
+    setupControls()
+
+    createAnchor()
     controlEnabled = true
     controlButton.Text = "CONTROL: ON"
 
-    -- ✅ Character walks NORMALLY (native controls work)
-    hrp.Anchored = false
-    humanoid.WalkSpeed = walkSpeed
-    humanoid.JumpPower = jumpPower
-    humanoid.UseJumpPower = true
+    -- ✅ FREEZE player but DON'T hide
+    hrp.Anchored = true
+    humanoid.WalkSpeed = 0
+    humanoid.JumpPower = 0
 
-    -- ✅ Hide character visually
-    hideCharacter()
-
-    -- ✅ Default Roblox camera on the humanoid
-    camera.CameraType = Enum.CameraType.Custom
-    camera.CameraSubject = humanoid
-    camera.CameraMode = Enum.CameraMode.Classic
+    -- Custom camera
+    camera.CameraType = Enum.CameraType.Scriptable
+    targetCamYaw, targetCamPitch, targetCamDist = 0, 12, 18
+    camYaw, camPitch, camDist = 0, 12, 18
 
     startMovement()
 
     if renderConnection then renderConnection:Disconnect() end
     renderConnection = RunService.RenderStepped:Connect(function(dt)
         updateAnimation(dt)
+        updateCamera(dt)
     end)
 
     status.Text = "🎮 WALK WITH WASD / JOYSTICK"
@@ -708,20 +904,24 @@ local function stopControl()
     controlEnabled = false
     moveAmount = 0
     jumpState = "Ground"
+    verticalOffset = 0
 
     if movementConnection then movementConnection:Disconnect(); movementConnection = nil end
     if renderConnection   then renderConnection:Disconnect();   renderConnection   = nil end
 
+    -- Restore player
+    hrp.Anchored = false
     humanoid.WalkSpeed = 16
     humanoid.JumpPower = 50
 
     camera.CameraType = Enum.CameraType.Custom
     camera.CameraSubject = humanoid
 
-    showCharacter()
     rebuildRobot()
     controlButton.Text = "CONTROL: OFF"
     status.Text = "🤖 ROBOT READY"
+
+    if robotAnchor then robotAnchor:Destroy(); robotAnchor = nil end
 end
 
 --========================================================
@@ -764,7 +964,9 @@ player.CharacterAdded:Connect(function(newCharacter)
     character = newCharacter
     humanoid = character:WaitForChild("Humanoid")
     hrp = character:WaitForChild("HumanoidRootPart")
+    task.wait(0.5)
+    setupControls()
 end)
 
 updateSlots()
-print("🎃 MANI PUMPKIN ROBO V.3.5 LOADED")
+print("🎃 MANI PUMPKIN ROBO V.3.6 LOADED")
