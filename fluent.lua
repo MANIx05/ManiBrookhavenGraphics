@@ -1,88 +1,45 @@
---========================================================--
---   🎃 MANI PUMPKIN ROBO V.1 — DELTA EXECUTOR EDITION
---   Paste in Delta → Execute
---   PC + Mobile | Default Roblox camera feel
---========================================================--
+--========================================================
+-- 🎃 MANI PUMPKIN ROBO V.3.5
+-- BULLETPROOF: Character walks invisible, robot mirrors HRP
+-- Default Roblox camera | Works PC + Mobile + Gamepad
+--========================================================
 
-if not game:IsLoaded() then game.Loaded:Wait() end
+repeat task.wait() until game:IsLoaded()
 
 local Players          = game:GetService("Players")
 local RunService       = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local TweenService     = game:GetService("TweenService")
 
-local Player    = Players.LocalPlayer
-local PlayerGui = Player:WaitForChild("PlayerGui")
+local player    = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid  = character:WaitForChild("Humanoid")
+local hrp       = character:WaitForChild("HumanoidRootPart")
+local camera    = workspace.CurrentCamera
 
---========================================================--
--- CHARACTER (with retry)
---========================================================--
-local Character, Humanoid, HRP
+--========================================================
+-- FOLDER
+--========================================================
+local propsFolder =
+    workspace:FindFirstChild("WorkspaceCom")
+    and workspace.WorkspaceCom:FindFirstChild("001_TrafficCones")
 
-local function refreshCharacter()
-    Character = Player.Character or Player.CharacterAdded:Wait()
-    Humanoid  = Character:WaitForChild("Humanoid", 10)
-    HRP       = Character:WaitForChild("HumanoidRootPart", 10)
-    return Humanoid ~= nil and HRP ~= nil
-end
-
-if not refreshCharacter() then
-    warn("[MANI ROBO] Character not ready")
+if not propsFolder then
+    warn("❌ WorkspaceCom > 001_TrafficCones not found")
     return
 end
 
---========================================================--
--- CONFIG
---========================================================--
-local CONFIG = {
-    Title            = "MANI PUMPKIN ROBO V.1",
-    RobotHeight      = 1,
-    PropDistance     = 1,
-    WalkSpeed        = 28,
-    JumpPower        = 55,
-    CameraDistance   = 18,
-    CameraMinDistance= 7,
-    CameraMaxDistance= 45,
-    CameraPitch      = -10,
-    RobotSpawnDist   = 8,
-    AnimationSpeed   = 9,
-    Gravity          = 100,
-    HeadFollow       = true,
-}
-
---========================================================--
--- PROPS FOLDER (retry loop)
---========================================================--
-local PropsFolder
-
-local function findPropsFolder()
-    local wsc = workspace:FindFirstChild("WorkspaceCom")
-    if wsc then
-        local f = wsc:FindFirstChild("001_TrafficCones")
-        if f then PropsFolder = f; return true end
-    end
-    return false
-end
-
--- try now, else retry in background
-if not findPropsFolder() then
-    task.spawn(function()
-        for _ = 1, 30 do
-            if findPropsFolder() then break end
-            task.wait(0.5)
-        end
-    end)
-end
-
---========================================================--
--- SLOTS & OFFSETS
---========================================================--
+--========================================================
+-- SLOTS
+--========================================================
 local SLOTS = {
-    "Head","Waist","Right Hand","Left Hand",
-    "Right Leg 1","Right Leg 2","Right Leg 3",
-    "Left Leg 1","Left Leg 2","Left Leg 3",
+    [1]="Head",[2]="Waist",[3]="Right Hand",[4]="Left Hand",
+    [5]="Right Leg 1",[6]="Right Leg 2",[7]="Right Leg 3",
+    [8]="Left Leg 1",[9]="Left Leg 2",[10]="Left Leg 3",
 }
 
+--========================================================
+-- BASE OFFSETS (bottom of legs = 0, grows UP)
+--========================================================
 local BASE_OFFSETS = {
     Head           = Vector3.new( 0,    7.9, 0),
     Waist          = Vector3.new( 0,    4.6, 0),
@@ -97,805 +54,717 @@ local BASE_OFFSETS = {
 }
 
 local PART_CORRECTION = {
-    Head           = CFrame.Angles(0,0,0),
-    Waist          = CFrame.Angles(0, math.rad(180), 0),
+    ["Head"]       = CFrame.identity,
+    ["Waist"]      = CFrame.Angles(0, math.rad(180), 0),
     ["Right Hand"] = CFrame.Angles(0, math.rad(180), 0),
     ["Left Hand"]  = CFrame.Angles(0, math.rad(180), 0),
 }
 
---========================================================--
--- STATE
---========================================================--
+local HIP_Y = 2.7
+
+--========================================================
+-- SETTINGS
+--========================================================
+local robotHeight    = 1
+local propDistance   = 1
+local walkSpeed      = 28
+local jumpPower      = 55
 local controlEnabled = false
-local robotLoaded    = false
+local headFollowCam  = true
 
-local robotCenter   = Vector3.zero
-local robotRotation = CFrame.identity
-local robotAnchor
+local registeredProps = {}
+local robotCenter, robotRotation = nil, nil
+local movementConnection, renderConnection = nil, nil
 
-local renderConn, moveConn
+local animClock, moveAmount = 0, 0
+local jumpState = "Ground"
+local ANIMATION_RATE = 1/30
+local animationAccumulator = 0
 
-local moveAmount    = 0
-local animationTime = 0
-local jumpVelocity  = 0
-local isJumping     = false
+local hiddenState = {}
 
-local camYaw, camPitch, camDistance
-camPitch    = CONFIG.CameraPitch
-camDistance = CONFIG.CameraDistance
-camYaw      = 0
-
-local rightMouseDown, lastMousePos
-local mobileCamTouch, mobileLastPos
-
-local originalWalkSpeed, originalJumpPower, originalAutoRotate
-
---========================================================--
+--========================================================
 -- GUI
---========================================================--
-local oldGui = PlayerGui:FindFirstChild("MANI_PUMPKIN_ROBO_V1")
-if oldGui then oldGui:Destroy() end
+--========================================================
+local gui = Instance.new("ScreenGui")
+gui.Name = "MANI_PUMPKIN_ROBO_V3"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.Parent = player:WaitForChild("PlayerGui")
 
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name           = "MANI_PUMPKIN_ROBO_V1"
-ScreenGui.ResetOnSpawn   = false
-ScreenGui.IgnoreGuiInset = true
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.Parent         = PlayerGui
+local main = Instance.new("Frame")
+main.Size = UDim2.fromOffset(190, 230)
+main.Position = UDim2.new(0.5, -95, 0.5, -115)
+main.BackgroundColor3 = Color3.fromRGB(16, 16, 20)
+main.BorderSizePixel = 0
+main.Active = true
+main.Parent = gui
+Instance.new("UICorner", main).CornerRadius = UDim.new(0, 12)
 
-local Main = Instance.new("Frame")
-Main.Size             = UDim2.fromOffset(340, 430)
-Main.Position         = UDim2.new(0, 30, 0.5, -215)
-Main.BackgroundColor3 = Color3.fromRGB(18,18,22)
-Main.BorderSizePixel  = 0
-Main.Active           = true
-Main.Parent           = ScreenGui
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0,12)
-local stroke = Instance.new("UIStroke", Main)
-stroke.Color = Color3.fromRGB(75,75,90); stroke.Thickness = 1
+local titleBar = Instance.new("Frame")
+titleBar.Size = UDim2.new(1, 0, 0, 34)
+titleBar.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+titleBar.BorderSizePixel = 0
+titleBar.Parent = main
+Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 12)
 
-local TitleBar = Instance.new("Frame", Main)
-TitleBar.Size = UDim2.new(1,0,0,42)
-TitleBar.BackgroundColor3 = Color3.fromRGB(25,25,31)
-TitleBar.BorderSizePixel = 0
-TitleBar.Active = true
-Instance.new("UICorner", TitleBar).CornerRadius = UDim.new(0,12)
+local title = Instance.new("TextLabel")
+title.BackgroundTransparency = 1
+title.Position = UDim2.fromOffset(8, 3)
+title.Size = UDim2.new(1, -60, 0, 28)
+title.Text = "🎃 MANI PUMPKIN V.3.5"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextSize = 10
+title.Font = Enum.Font.GothamBold
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = titleBar
 
-local Title = Instance.new("TextLabel", TitleBar)
-Title.Size = UDim2.new(1,-95,1,0)
-Title.Position = UDim2.fromOffset(12,0)
-Title.BackgroundTransparency = 1
-Title.Text = "🎃  MANI PUMPKIN ROBO V.1"
-Title.TextColor3 = Color3.fromRGB(240,240,245)
-Title.TextSize = 15
-Title.Font = Enum.Font.GothamBold
-Title.TextXAlignment = Enum.TextXAlignment.Left
+local minimize = Instance.new("TextButton")
+minimize.Size = UDim2.fromOffset(24, 24)
+minimize.Position = UDim2.new(1, -54, 0, 5)
+minimize.Text = "—"
+minimize.TextSize = 16
+minimize.TextColor3 = Color3.fromRGB(255, 255, 255)
+minimize.BackgroundColor3 = Color3.fromRGB(42, 42, 48)
+minimize.BorderSizePixel = 0
+minimize.Parent = titleBar
+Instance.new("UICorner", minimize).CornerRadius = UDim.new(0, 6)
 
-local MinButton = Instance.new("TextButton", TitleBar)
-MinButton.Size = UDim2.fromOffset(32,30)
-MinButton.Position = UDim2.new(1,-72,0,6)
-MinButton.BackgroundColor3 = Color3.fromRGB(45,45,55)
-MinButton.Text = "—"; MinButton.TextColor3 = Color3.new(1,1,1); MinButton.TextSize = 18
-MinButton.Font = Enum.Font.GothamBold; MinButton.BorderSizePixel = 0
-Instance.new("UICorner", MinButton).CornerRadius = UDim.new(0,7)
+local close = Instance.new("TextButton")
+close.Size = UDim2.fromOffset(24, 24)
+close.Position = UDim2.new(1, -28, 0, 5)
+close.Text = "×"
+close.TextSize = 16
+close.TextColor3 = Color3.fromRGB(255, 100, 100)
+close.BackgroundColor3 = Color3.fromRGB(42, 42, 48)
+close.BorderSizePixel = 0
+close.Parent = titleBar
+Instance.new("UICorner", close).CornerRadius = UDim.new(0, 6)
 
-local CloseButton = Instance.new("TextButton", TitleBar)
-CloseButton.Size = UDim2.fromOffset(32,30)
-CloseButton.Position = UDim2.new(1,-36,0,6)
-CloseButton.BackgroundColor3 = Color3.fromRGB(80,35,40)
-CloseButton.Text = "×"; CloseButton.TextColor3 = Color3.new(1,1,1); CloseButton.TextSize = 20
-CloseButton.Font = Enum.Font.GothamBold; CloseButton.BorderSizePixel = 0
-Instance.new("UICorner", CloseButton).CornerRadius = UDim.new(0,7)
+local guiDragging, guiDragStart, guiStartPosition = false, nil, nil
+titleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+        guiDragging = true
+        guiDragStart = input.Position
+        guiStartPosition = main.Position
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if not guiDragging then return end
+    if input.UserInputType == Enum.UserInputType.MouseMovement
+    or input.UserInputType == Enum.UserInputType.Touch then
+        local d = input.Position - guiDragStart
+        main.Position = UDim2.new(
+            guiStartPosition.X.Scale, guiStartPosition.X.Offset + d.X,
+            guiStartPosition.Y.Scale, guiStartPosition.Y.Offset + d.Y)
+    end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+        guiDragging = false
+    end
+end)
 
-local Content = Instance.new("ScrollingFrame", Main)
-Content.Position = UDim2.fromOffset(8,48)
-Content.Size = UDim2.new(1,-16,1,-56)
-Content.BackgroundTransparency = 1
-Content.BorderSizePixel = 0
-Content.ScrollBarThickness = 4
-Content.CanvasSize = UDim2.new()
-Content.AutomaticCanvasSize = Enum.AutomaticSize.Y
-local Padding = Instance.new("UIPadding", Content)
-Padding.PaddingLeft = UDim.new(0,4)
-Padding.PaddingRight = UDim.new(0,4)
-Padding.PaddingTop = UDim.new(0,2)
-Padding.PaddingBottom = UDim.new(0,10)
-local Layout = Instance.new("UIListLayout", Content)
-Layout.Padding = UDim.new(0,7)
-Layout.SortOrder = Enum.SortOrder.LayoutOrder
+local scroll = Instance.new("ScrollingFrame")
+scroll.Position = UDim2.fromOffset(6, 40)
+scroll.Size = UDim2.new(1, -12, 1, -46)
+scroll.BackgroundTransparency = 1
+scroll.BorderSizePixel = 0
+scroll.ScrollBarThickness = 3
+scroll.CanvasSize = UDim2.new(0, 0, 0, 610)
+scroll.Parent = main
 
-local Status = Instance.new("TextLabel", Content)
-Status.Size = UDim2.new(1,0,0,30)
-Status.BackgroundColor3 = Color3.fromRGB(28,28,35)
-Status.BorderSizePixel = 0
-Status.Text = "● GUI READY"
-Status.TextColor3 = Color3.fromRGB(120,255,150)
-Status.TextSize = 12
-Status.Font = Enum.Font.GothamMedium
-Instance.new("UICorner", Status).CornerRadius = UDim.new(0,8)
+local content = Instance.new("Frame")
+content.BackgroundTransparency = 1
+content.Size = UDim2.new(1, -6, 0, 600)
+content.Parent = scroll
 
-local function createButton(text, height)
+local status = Instance.new("TextLabel")
+status.BackgroundTransparency = 1
+status.Position = UDim2.fromOffset(4, 0)
+status.Size = UDim2.new(1, -8, 0, 22)
+status.Text = "PROPS 0 / 10"
+status.TextColor3 = Color3.fromRGB(180, 180, 190)
+status.TextSize = 10
+status.Font = Enum.Font.GothamBold
+status.TextXAlignment = Enum.TextXAlignment.Left
+status.Parent = content
+
+local slotFrame = Instance.new("Frame")
+slotFrame.Position = UDim2.fromOffset(4, 25)
+slotFrame.Size = UDim2.new(1, -8, 0, 138)
+slotFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 13)
+slotFrame.BorderSizePixel = 0
+slotFrame.Parent = content
+Instance.new("UICorner", slotFrame).CornerRadius = UDim.new(0, 8)
+
+local slotList = Instance.new("UIListLayout")
+slotList.Padding = UDim.new(0, 1)
+slotList.Parent = slotFrame
+
+local slotLabels = {}
+for i = 1, 10 do
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -6, 0, 13)
+    label.BackgroundTransparency = 1
+    label.Text = i .. ". " .. SLOTS[i] .. " [EMPTY]"
+    label.TextColor3 = Color3.fromRGB(145, 145, 155)
+    label.TextSize = 9
+    label.Font = Enum.Font.GothamMedium
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = slotFrame
+    slotLabels[i] = label
+end
+
+local function button(text, y)
     local b = Instance.new("TextButton")
-    b.Size = UDim2.new(1,0,0,height or 36)
-    b.BackgroundColor3 = Color3.fromRGB(34,34,42)
+    b.Position = UDim2.fromOffset(4, y)
+    b.Size = UDim2.new(1, -8, 0, 26)
+    b.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
     b.BorderSizePixel = 0
     b.Text = text
-    b.TextColor3 = Color3.fromRGB(235,235,240)
-    b.TextSize = 13
-    b.Font = Enum.Font.GothamSemibold
-    b.AutoButtonColor = false
-    b.Parent = Content
-    Instance.new("UICorner", b).CornerRadius = UDim.new(0,8)
-    b.MouseEnter:Connect(function()
-        TweenService:Create(b, TweenInfo.new(0.12), {BackgroundColor3 = Color3.fromRGB(48,48,58)}):Play()
-    end)
-    b.MouseLeave:Connect(function()
-        TweenService:Create(b, TweenInfo.new(0.12), {BackgroundColor3 = Color3.fromRGB(34,34,42)}):Play()
-    end)
+    b.TextColor3 = Color3.fromRGB(255, 255, 255)
+    b.TextSize = 9
+    b.Font = Enum.Font.GothamBold
+    b.Parent = content
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 7)
     return b
 end
 
-local LoadButton     = createButton("🔄  LOAD MY PROPS", 40)
-local AssembleButton = createButton("🤖  ASSEMBLE ROBOT", 40)
+local loadButton     = button("LOAD 10 PROPS", 168)
+local assembleButton = button("🤖 ASSEMBLE ROBOT", 198)
 
---========================================================--
--- SLIDER
---========================================================--
-local function createSlider(title, minV, maxV, defV, callback)
-    local H = Instance.new("Frame", Content)
-    H.Size = UDim2.new(1,0,0,58)
-    H.BackgroundColor3 = Color3.fromRGB(27,27,34)
-    H.BorderSizePixel = 0
-    Instance.new("UICorner", H).CornerRadius = UDim.new(0,8)
+local function makeValueRow(labelText, y, initial)
+    local label = Instance.new("TextLabel")
+    label.Position = UDim2.fromOffset(4, y)
+    label.Size = UDim2.new(1, -78, 0, 26)
+    label.BackgroundTransparency = 1
+    label.Text = labelText .. ": " .. tostring(initial)
+    label.TextColor3 = Color3.fromRGB(215, 215, 220)
+    label.TextSize = 9
+    label.Font = Enum.Font.GothamBold
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = content
 
-    local L = Instance.new("TextLabel", H)
-    L.Size = UDim2.new(1,-20,0,25); L.Position = UDim2.fromOffset(10,2)
-    L.BackgroundTransparency = 1
-    L.TextColor3 = Color3.fromRGB(225,225,230); L.TextSize = 12
-    L.Font = Enum.Font.GothamMedium; L.TextXAlignment = Enum.TextXAlignment.Left
+    local minus = button("−", y)
+    minus.Position = UDim2.new(1, -58, 0, y)
+    minus.Size = UDim2.fromOffset(24, 26)
 
-    local Bar = Instance.new("Frame", H)
-    Bar.Size = UDim2.new(1,-20,0,6)
-    Bar.Position = UDim2.new(0,10,1,-17)
-    Bar.BackgroundColor3 = Color3.fromRGB(55,55,65)
-    Bar.BorderSizePixel = 0
-    Instance.new("UICorner", Bar).CornerRadius = UDim.new(1,0)
+    local plus = button("+", y)
+    plus.Position = UDim2.new(1, -30, 0, y)
+    plus.Size = UDim2.fromOffset(24, 26)
 
-    local Fill = Instance.new("Frame", Bar)
-    Fill.Size = UDim2.new((defV-minV)/(maxV-minV),0,1,0)
-    Fill.BackgroundColor3 = Color3.fromRGB(150,90,255)
-    Fill.BorderSizePixel = 0
-    Instance.new("UICorner", Fill).CornerRadius = UDim.new(1,0)
-
-    local value = defV
-    local dragging = false
-
-    local function setValue(x)
-        local percent = math.clamp((x - Bar.AbsolutePosition.X)/Bar.AbsoluteSize.X, 0, 1)
-        value = math.floor((minV + (maxV-minV)*percent)*10+0.5)/10
-        Fill.Size = UDim2.new(percent,0,1,0)
-        L.Text = title .. ": " .. value
-        callback(value)
-    end
-
-    Bar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            setValue(input.Position.X)
-        end
-    end)
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
-        or input.UserInputType == Enum.UserInputType.Touch) then
-            setValue(input.Position.X)
-        end
-    end)
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
-        end
-    end)
-
-    L.Text = title .. ": " .. value
-    return H
+    return label, minus, plus
 end
 
-createSlider("Robot Height", 0.5, 2, CONFIG.RobotHeight, function(v) CONFIG.RobotHeight = v end)
-createSlider("Prop Distance",0.5, 2, CONFIG.PropDistance,function(v) CONFIG.PropDistance = v end)
-createSlider("Walk Speed",   8,  60, CONFIG.WalkSpeed,   function(v) CONFIG.WalkSpeed = v end)
-createSlider("Jump Power",  20, 100, CONFIG.JumpPower,   function(v) CONFIG.JumpPower = v end)
-createSlider("Camera Zoom", CONFIG.CameraMinDistance, CONFIG.CameraMaxDistance,
-    CONFIG.CameraDistance, function(v) CONFIG.CameraDistance = v; camDistance = v end)
+local heightLabel,   heightMinus,   heightPlus   = makeValueRow("HEIGHT",     232, "1.00")
+local distanceLabel, distanceMinus, distancePlus = makeValueRow("DISTANCE",   262, "1.00")
+local speedLabel,    speedMinus,    speedPlus    = makeValueRow("WALK SPD",   292, walkSpeed)
+local jumpLabel,     jumpMinus,     jumpPlus     = makeValueRow("JUMP PWR",   322, jumpPower)
 
--- Head toggle
-local headEnabled = true
-local HeadButton = createButton("👁  Head 360° Follow    ON", 36)
-HeadButton.TextColor3 = Color3.fromRGB(120,255,150)
-HeadButton.MouseButton1Click:Connect(function()
-    headEnabled = not headEnabled
-    HeadButton.Text = "👁  Head 360° Follow    " .. (headEnabled and "ON" or "OFF")
-    HeadButton.TextColor3 = headEnabled and Color3.fromRGB(120,255,150) or Color3.fromRGB(220,220,225)
+local headToggle = button("HEAD 360° FOLLOW: ON", 358)
+headToggle.TextSize = 8
+
+local controlButton = button("CONTROL: OFF", 390)
+
+local cameraInfo = Instance.new("TextLabel")
+cameraInfo.Position = UDim2.fromOffset(4, 424)
+cameraInfo.Size = UDim2.new(1, -8, 0, 48)
+cameraInfo.BackgroundColor3 = Color3.fromRGB(24, 24, 29)
+cameraInfo.BorderSizePixel = 0
+cameraInfo.Text = "DEFAULT CAMERA\nPC: RMB Drag • Wheel Zoom\nMobile: Drag • Pinch Zoom"
+cameraInfo.TextColor3 = Color3.fromRGB(160, 160, 170)
+cameraInfo.TextSize = 8
+cameraInfo.Font = Enum.Font.GothamMedium
+cameraInfo.TextXAlignment = Enum.TextXAlignment.Left
+cameraInfo.Parent = content
+Instance.new("UICorner", cameraInfo).CornerRadius = UDim.new(0, 7)
+
+local resize = Instance.new("TextButton")
+resize.Size = UDim2.fromOffset(16, 16)
+resize.Position = UDim2.new(1, -16, 1, -16)
+resize.BackgroundTransparency = 1
+resize.Text = "◢"
+resize.TextColor3 = Color3.fromRGB(100, 100, 110)
+resize.TextSize = 11
+resize.Parent = main
+
+local resizing, resizeStart, originalSize = false, nil, nil
+resize.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+        resizing = true
+        resizeStart = input.Position
+        originalSize = main.AbsoluteSize
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if not resizing then return end
+    if input.UserInputType == Enum.UserInputType.MouseMovement
+    or input.UserInputType == Enum.UserInputType.Touch then
+        local d = input.Position - resizeStart
+        local w = math.clamp(originalSize.X + d.X, 160, 300)
+        local h = math.clamp(originalSize.Y + d.Y, 150, 460)
+        main.Size = UDim2.fromOffset(w, h)
+    end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+        resizing = false
+    end
 end)
 
-local ControlButton    = createButton("🎮  START ROBOT CONTROL", 42)
-local CameraResetBtn   = createButton("📷  RESET CAMERA", 36)
-
---========================================================--
--- PROPS SEARCH
---========================================================--
-local myProps = {}
-
-local function findMyProps()
-    table.clear(myProps)
-    if not findPropsFolder() then
-        Status.Text = "⚠  Props folder not found"
-        Status.TextColor3 = Color3.fromRGB(255,180,100)
-        return false
-    end
-    for _, obj in ipairs(PropsFolder:GetChildren()) do
-        if obj:IsA("BasePart") and string.find(string.lower(obj.Name), string.lower(Player.Name), 1, true) then
-            table.insert(myProps, obj)
+--========================================================
+-- SLOT UI
+--========================================================
+local function updateSlots()
+    local count = 0
+    for i = 1, 10 do
+        if registeredProps[i] then
+            count += 1
+            slotLabels[i].Text = i .. ". " .. SLOTS[i] .. " [LOCKED]"
+            slotLabels[i].TextColor3 = Color3.fromRGB(90, 255, 140)
+        else
+            slotLabels[i].Text = i .. ". " .. SLOTS[i] .. " [EMPTY]"
+            slotLabels[i].TextColor3 = Color3.fromRGB(145, 145, 155)
         end
     end
-    if #myProps == 0 then
-        Status.Text = "⚠  No props for " .. Player.Name
-        Status.TextColor3 = Color3.fromRGB(255,180,100)
-        return false
+    status.Text = "PROPS " .. count .. " / 10"
+end
+
+local function loadProps()
+    registeredProps = {}
+    local found = {}
+    for _, v in pairs(propsFolder:GetChildren()) do
+        if string.find(v.Name, player.Name) then
+            table.insert(found, v)
+        end
     end
-    Status.Text = "● Props loaded: " .. #myProps .. " / " .. #SLOTS
-    Status.TextColor3 = Color3.fromRGB(120,255,150)
-    return true
+    for i = 1, math.min(#found, 10) do
+        registeredProps[i] = found[i]
+    end
+    updateSlots()
+    status.Text = "LOADED " .. math.min(#found, 10) .. " / 10"
 end
 
---========================================================--
--- MOVE PROP
---========================================================--
-local function moveProp(prop, cf)
-    if not prop then return false end
-    local remote = prop:FindFirstChild("SetCurrentCFrame")
-    if not remote or not remote:IsA("RemoteFunction") then return false end
-    local ok = pcall(function() remote:InvokeServer(cf) end)
-    return ok
+--========================================================
+-- BODY CFRAME
+--========================================================
+local function bodyCFrame(offset, slot, rotationOffset, extraOffset)
+    extraOffset    = extraOffset or Vector3.zero
+    rotationOffset = rotationOffset or CFrame.identity
+
+    local right   = robotRotation.RightVector
+    local forward = robotRotation.LookVector
+
+    local pos = robotCenter
+        + right   * offset.X * propDistance
+        + Vector3.new(0, offset.Y * robotHeight, 0)
+        + forward * offset.Z * propDistance
+        + extraOffset
+
+    local correction = PART_CORRECTION[slot] or CFrame.identity
+    return CFrame.new(pos, pos + forward) * correction * rotationOffset
 end
 
---========================================================--
--- BODY / LEG CFrame
---========================================================--
-local function getBodyCFrame(partName, center, rotation)
-    local offset = BASE_OFFSETS[partName]
-    if not offset then return CFrame.new(center) end
-    local sx, sy, sz = CONFIG.PropDistance, CONFIG.RobotHeight, CONFIG.PropDistance
-    local lo = Vector3.new(offset.X*sx, offset.Y*sy, offset.Z*sz)
-    local wp = center
-        + rotation.RightVector * lo.X
-        + Vector3.new(0, lo.Y, 0)
-        + rotation.LookVector * lo.Z
-    local cf = CFrame.lookAt(wp, wp + rotation.LookVector, Vector3.yAxis)
-    if PART_CORRECTION[partName] then cf = cf * PART_CORRECTION[partName] end
-    return cf
-end
+--========================================================
+-- LEG CFRAME (rotate 3 parts around hip)
+--========================================================
+local function legBodyCFrame(offset, angle, extraOffset)
+    extraOffset = extraOffset or Vector3.zero
 
-local function getLegCFrame(partName, center, rotation, angle)
-    local offset = BASE_OFFSETS[partName]
-    if not offset then return CFrame.new(center) end
-    local sx, sy = CONFIG.PropDistance, CONFIG.RobotHeight
-
-    -- pivot at hip
-    local hipY = 2.7 * sy
-    local relY = (offset.Y * sy) - hipY
+    local relY = offset.Y - HIP_Y
+    local relZ = offset.Z
     local cosA, sinA = math.cos(angle), math.sin(angle)
-    local rotY = relY * cosA
-    local rotZ = relY * sinA
+    local newY = relY * cosA - relZ * sinA
+    local newZ = relY * sinA + relZ * cosA
 
-    local wp = center
-        + rotation.RightVector * (offset.X * sx)
-        + Vector3.new(0, hipY + rotY, 0)
-        + rotation.LookVector  * rotZ
+    local finalLocal = Vector3.new(offset.X, HIP_Y + newY, newZ)
 
-    return CFrame.new(wp) * CFrame.Angles(angle, 0, 0)
+    local right   = robotRotation.RightVector
+    local forward = robotRotation.LookVector
+
+    local pos = robotCenter
+        + right   * finalLocal.X * propDistance
+        + Vector3.new(0, finalLocal.Y * robotHeight, 0)
+        + forward * finalLocal.Z * propDistance
+        + extraOffset
+
+    return CFrame.new(pos, pos + forward) * CFrame.Angles(angle, 0, 0)
 end
 
---========================================================--
--- ASSIGN PROPS
---========================================================--
-local function assignProps()
-    if not findMyProps() then return nil end
-    local assigned = {}
-    for i, slot in ipairs(SLOTS) do
-        if myProps[i] then assigned[slot] = myProps[i] end
+local function moveProp(prop, cf)
+    if not prop then return end
+    local remote = prop:FindFirstChild("SetCurrentCFrame")
+    if remote then
+        pcall(function() remote:InvokeServer(cf) end)
     end
-    return assigned
 end
 
---========================================================--
+--========================================================
 -- ASSEMBLE
---========================================================--
+--========================================================
 local function assembleRobot()
-    if not refreshCharacter() then return end
-    local assigned = assignProps()
-    if not assigned then return end
+    if not registeredProps[1] then loadProps() end
+    if not registeredProps[1] then status.Text = "NO PROPS"; return end
 
-    robotCenter = HRP.Position + HRP.CFrame.LookVector * CONFIG.RobotSpawnDist
-    local look = Vector3.new(HRP.CFrame.LookVector.X, 0, HRP.CFrame.LookVector.Z)
-    if look.Magnitude < 0.01 then look = Vector3.new(0,0,-1) end
-    look = look.Unit
-    robotRotation = CFrame.lookAt(robotCenter, robotCenter + look, Vector3.yAxis)
+    robotCenter = hrp.Position + hrp.CFrame.LookVector * 8
+    robotRotation = CFrame.lookAt(robotCenter, robotCenter + hrp.CFrame.LookVector)
 
-    for _, slot in ipairs(SLOTS) do
-        local prop = assigned[slot]
+    for i = 1, 10 do
+        local prop = registeredProps[i]
         if prop then
-            moveProp(prop, getBodyCFrame(slot, robotCenter, robotRotation))
+            local offset = BASE_OFFSETS[SLOTS[i]]
+            if offset then
+                moveProp(prop, bodyCFrame(offset, SLOTS[i]))
+            end
             task.wait(0.08)
         end
     end
 
-    robotLoaded = true
-    Status.Text = "● ROBOT READY  " .. #myProps .. "/" .. #SLOTS
-    Status.TextColor3 = Color3.fromRGB(120,255,150)
+    status.Text = "🤖 ROBOT READY"
 end
 
---========================================================--
--- ANCHOR
---========================================================--
-local function createAnchor()
-    if robotAnchor then robotAnchor:Destroy() end
-    robotAnchor = Instance.new("Part")
-    robotAnchor.Name = "MANI_ROBO_ANCHOR"
-    robotAnchor.Size = Vector3.new(2,2,2)
-    robotAnchor.Transparency = 1
-    robotAnchor.CanCollide = false
-    robotAnchor.CanTouch  = false
-    robotAnchor.CanQuery  = false
-    robotAnchor.Anchored  = true
-    robotAnchor.CFrame    = CFrame.new(robotCenter)
-    robotAnchor.Parent    = workspace
+local function rebuildRobot()
+    if not robotCenter or not robotRotation then return end
+    for i = 1, 10 do
+        local prop = registeredProps[i]
+        if prop then
+            local slot = SLOTS[i]
+            local offset = BASE_OFFSETS[slot]
+            if offset then
+                moveProp(prop, bodyCFrame(offset, slot))
+            end
+        end
+    end
 end
 
---========================================================--
--- HIDE CHARACTER
---========================================================--
-local hiddenParts = {}
+--========================================================
+-- CONTROLS
+--========================================================
+heightMinus.MouseButton1Click:Connect(function()
+    robotHeight = math.max(0.5, robotHeight - 0.1)
+    heightLabel.Text = string.format("HEIGHT: %.2f", robotHeight)
+end)
+heightPlus.MouseButton1Click:Connect(function()
+    robotHeight = math.min(3, robotHeight + 0.1)
+    heightLabel.Text = string.format("HEIGHT: %.2f", robotHeight)
+end)
 
+distanceMinus.MouseButton1Click:Connect(function()
+    propDistance = math.max(0.5, propDistance - 0.1)
+    distanceLabel.Text = string.format("DISTANCE: %.2f", propDistance)
+end)
+distancePlus.MouseButton1Click:Connect(function()
+    propDistance = math.min(3, propDistance + 0.1)
+    distanceLabel.Text = string.format("DISTANCE: %.2f", propDistance)
+end)
+
+speedMinus.MouseButton1Click:Connect(function()
+    walkSpeed = math.max(5, walkSpeed - 5)
+    speedLabel.Text = "WALK SPD: " .. walkSpeed
+    if controlEnabled and humanoid then
+        humanoid.WalkSpeed = walkSpeed
+    end
+end)
+speedPlus.MouseButton1Click:Connect(function()
+    walkSpeed = math.min(100, walkSpeed + 5)
+    speedLabel.Text = "WALK SPD: " .. walkSpeed
+    if controlEnabled and humanoid then
+        humanoid.WalkSpeed = walkSpeed
+    end
+end)
+
+jumpMinus.MouseButton1Click:Connect(function()
+    jumpPower = math.max(20, jumpPower - 5)
+    jumpLabel.Text = "JUMP PWR: " .. jumpPower
+    if controlEnabled and humanoid then
+        humanoid.JumpPower = jumpPower
+    end
+end)
+jumpPlus.MouseButton1Click:Connect(function()
+    jumpPower = math.min(150, jumpPower + 5)
+    jumpLabel.Text = "JUMP PWR: " .. jumpPower
+    if controlEnabled and humanoid then
+        humanoid.JumpPower = jumpPower
+    end
+end)
+
+headToggle.MouseButton1Click:Connect(function()
+    headFollowCam = not headFollowCam
+    headToggle.Text = "HEAD 360° FOLLOW: " .. (headFollowCam and "ON" or "OFF")
+end)
+
+--========================================================
+-- HEAD YAW (360° follow camera)
+--========================================================
+local function getHeadYaw()
+    local camLook = camera.CFrame.LookVector
+    camLook = Vector3.new(camLook.X, 0, camLook.Z)
+    if camLook.Magnitude < 0.01 then return 0 end
+    camLook = camLook.Unit
+
+    local robotLook = hrp.CFrame.LookVector
+    robotLook = Vector3.new(robotLook.X, 0, robotLook.Z)
+    if robotLook.Magnitude < 0.01 then return 0 end
+    robotLook = robotLook.Unit
+
+    local dot   = robotLook:Dot(camLook)
+    local cross = robotLook:Cross(camLook).Y
+    return math.atan2(cross, dot)
+end
+
+--========================================================
+-- HIDE / SHOW CHARACTER
+--========================================================
 local function hideCharacter()
-    table.clear(hiddenParts)
-    if not Character then return end
-    for _, obj in ipairs(Character:GetDescendants()) do
-        if obj:IsA("BasePart") then
-            hiddenParts[obj] = {Transparency=obj.Transparency, CanCollide=obj.CanCollide}
-            obj.Transparency = 1
-            obj.CanCollide = false
-        elseif obj:IsA("Decal") then
-            hiddenParts[obj] = {Transparency=obj.Transparency}
-            obj.Transparency = 1
+    hiddenState = {}
+    for _, part in ipairs(character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            hiddenState[part] = {t = part.Transparency, c = part.CanCollide, q = part.CanQuery}
+            part.Transparency = 1
+            part.CanCollide = false
+            part.CanQuery = false
+        elseif part:IsA("Decal") or part:IsA("Texture") then
+            hiddenState[part] = {t = part.Transparency}
+            part.Transparency = 1
         end
     end
 end
 
 local function showCharacter()
-    for obj, data in pairs(hiddenParts) do
-        if obj and obj.Parent then
-            for prop, val in pairs(data) do
-                pcall(function() obj[prop] = val end)
+    for part, s in pairs(hiddenState) do
+        if part and part.Parent then
+            part.Transparency = s.t
+            if part:IsA("BasePart") then
+                part.CanCollide = s.c or false
+                part.CanQuery = s.q or true
             end
         end
     end
-    table.clear(hiddenParts)
+    hiddenState = {}
 end
 
---========================================================--
--- INPUT (PC keyboard fallback + Mobile joystick via MoveDirection)
---========================================================--
-local function getKeyboardDirection()
-    local cam = workspace.CurrentCamera
-    if not cam then return Vector3.zero end
-    local fwd = Vector3.new(cam.CFrame.LookVector.X, 0, cam.CFrame.LookVector.Z)
-    local rgt = Vector3.new(cam.CFrame.RightVector.X, 0, cam.CFrame.RightVector.Z)
-    if fwd.Magnitude > 0 then fwd = fwd.Unit end
-    if rgt.Magnitude > 0 then rgt = rgt.Unit end
-    local d = Vector3.zero
-    if UserInputService:IsKeyDown(Enum.KeyCode.W) or UserInputService:IsKeyDown(Enum.KeyCode.Up)    then d += fwd end
-    if UserInputService:IsKeyDown(Enum.KeyCode.S) or UserInputService:IsKeyDown(Enum.KeyCode.Down)  then d -= fwd end
-    if UserInputService:IsKeyDown(Enum.KeyCode.D) or UserInputService:IsKeyDown(Enum.KeyCode.Right) then d += rgt end
-    if UserInputService:IsKeyDown(Enum.KeyCode.A) or UserInputService:IsKeyDown(Enum.KeyCode.Left)  then d -= rgt end
-    if d.Magnitude > 0.05 then return d.Unit end
-    return Vector3.zero
-end
-
-local function getMoveDirection()
-    if Humanoid then
-        local md = Humanoid.MoveDirection
-        if md.Magnitude > 0.05 then
-            return Vector3.new(md.X, 0, md.Z).Unit
-        end
-    end
-    return getKeyboardDirection()
-end
-
---========================================================--
--- JUMP
---========================================================--
-UserInputService.JumpRequest:Connect(function()
-    if controlEnabled and not isJumping and robotAnchor then
-        isJumping = true
-        jumpVelocity = CONFIG.JumpPower
-    end
-end)
-
---========================================================--
--- MOVEMENT
---========================================================--
+--========================================================
+-- ✅ MIRROR MOVEMENT — Character walks, robot follows
+--========================================================
 local function startMovement()
-    if moveConn then moveConn:Disconnect() end
-    moveConn = RunService.Heartbeat:Connect(function(dt)
-        if not controlEnabled or not robotAnchor then return end
+    if movementConnection then movementConnection:Disconnect() end
 
-        local dir = getMoveDirection()
+    movementConnection = RunService.Heartbeat:Connect(function(dt)
+        if not controlEnabled then return end
+        if not hrp or not hrp.Parent then return end
 
-        if dir.Magnitude > 0.05 then
-            local newPos = robotAnchor.Position + dir * CONFIG.WalkSpeed * dt
-            robotAnchor.CFrame = CFrame.lookAt(newPos, newPos + dir, Vector3.yAxis)
-            moveAmount = 1
+        -- ✅ Robot position = character position (mirror)
+        robotCenter   = hrp.Position
+        robotRotation = hrp.CFrame
+
+        -- Detect movement for animation (MoveDirection works because HRP is FREE)
+        local dir = humanoid.MoveDirection
+        local flat = Vector3.new(dir.X, 0, dir.Z)
+        if flat.Magnitude > 0.05 then
+            moveAmount = math.clamp(moveAmount + dt * 7, 0, 1)
         else
-            moveAmount = math.max(0, moveAmount - dt*5)
+            moveAmount = math.clamp(moveAmount - dt * 8, 0, 1)
         end
 
-        -- jump
-        if isJumping then
-            jumpVelocity = jumpVelocity - CONFIG.Gravity * dt
-            local y = robotAnchor.Position.Y + jumpVelocity * dt
-            robotAnchor.Position = Vector3.new(robotAnchor.Position.X, y, robotAnchor.Position.Z)
-            if jumpVelocity <= 0 and y <= robotCenter.Y then
-                robotAnchor.Position = Vector3.new(robotAnchor.Position.X, robotCenter.Y, robotAnchor.Position.Z)
-                jumpVelocity = 0
-                isJumping = false
-            end
-        end
-
-        robotCenter   = robotAnchor.Position
-        robotRotation = robotAnchor.CFrame
-
-        -- ✅ keep player invisible & glued to robot, but DO NOT zero velocity
-        if HRP and HRP.Parent then
-            HRP.CFrame = CFrame.new(robotAnchor.Position)
+        -- Detect jump via FloorMaterial
+        if humanoid.FloorMaterial == Enum.Material.Air then
+            jumpState = "Jump"
+        else
+            jumpState = "Ground"
         end
     end)
 end
 
---========================================================--
--- HEAD YAW
---========================================================--
-local function getHeadYaw()
-    if not headEnabled then return 0 end
-    local cam = workspace.CurrentCamera
-    if not cam then return 0 end
-    local fwd = Vector3.new(cam.CFrame.LookVector.X, 0, cam.CFrame.LookVector.Z)
-    if fwd.Magnitude < 0.01 then return 0 end
-    fwd = fwd.Unit
-    local rf = robotRotation.LookVector
-    local angle = math.atan2(rf:Cross(fwd).Y, rf:Dot(fwd))
-    return math.clamp(angle, -math.pi, math.pi)
-end
-
---========================================================--
+--========================================================
 -- ANIMATION
---========================================================--
+--========================================================
 local function updateAnimation(dt)
-    if not robotLoaded then return end
-    animationTime += dt * CONFIG.AnimationSpeed
+    if not controlEnabled or not robotCenter then return end
 
-    local assigned = {}
-    for i, slot in ipairs(SLOTS) do
-        if myProps[i] then assigned[slot] = myProps[i] end
+    animClock += dt
+    animationAccumulator += dt
+    if animationAccumulator < ANIMATION_RATE then return end
+    animationAccumulator = 0
+
+    local moving = moveAmount > 0.05
+
+    local cycle    = math.sin(animClock * 9)
+    local opposite = math.sin(animClock * 9 + math.pi)
+    local idle     = math.sin(animClock * 2)
+
+    local idleBob = (not moving and jumpState == "Ground") and (idle * 0.08) or 0
+    local walkBob = (moving and jumpState == "Ground") and (math.abs(cycle) * 0.10) or 0
+    local jumpBob = (jumpState == "Jump") and 0.15 or 0
+
+    local rightLegAngle, leftLegAngle = 0, 0
+    if jumpState == "Jump" then
+        rightLegAngle = math.rad(15)
+        leftLegAngle  = math.rad(15)
+    elseif moving then
+        rightLegAngle = math.rad(opposite * 25)
+        leftLegAngle  = math.rad(cycle    * 25)
     end
 
-    local walking = moveAmount > 0.1
-    local bob = walking
-        and math.sin(animationTime * 1.5) * 0.18
-        or  math.sin(animationTime * 0.8) * 0.06
+    local headYawAngle = headFollowCam and getHeadYaw() or 0
 
-    local cc = robotCenter + Vector3.new(0, bob, 0)
+    for i = 1, 10 do
+        local prop = registeredProps[i]
+        if prop then
+            local slot   = SLOTS[i]
+            local offset = BASE_OFFSETS[slot]
+            if offset then
+                local animationOffset = Vector3.new(0, idleBob + walkBob + jumpBob, 0)
 
-    -- Head
-    if assigned.Head then
-        local yaw = math.atan2(robotRotation.LookVector.X, robotRotation.LookVector.Z) + getHeadYaw()
-        local base = getBodyCFrame("Head", cc, robotRotation)
-        moveProp(assigned.Head, CFrame.new(base.Position) * CFrame.Angles(0, yaw, 0))
-    end
+                if string.find(slot, "Right Leg") then
+                    moveProp(prop, legBodyCFrame(offset, rightLegAngle, animationOffset))
+                elseif string.find(slot, "Left Leg") then
+                    moveProp(prop, legBodyCFrame(offset, leftLegAngle, animationOffset))
 
-    -- Waist
-    if assigned.Waist then
-        moveProp(assigned.Waist, getBodyCFrame("Waist", cc, robotRotation))
-    end
+                elseif slot == "Head" then
+                    local rot
+                    if moving then
+                        rot = CFrame.Angles(math.rad(opposite * 3), headYawAngle, math.rad(cycle * 2))
+                    else
+                        rot = CFrame.Angles(math.rad(idle * 1.5), headYawAngle, math.rad(idle * 1.2))
+                    end
+                    moveProp(prop, bodyCFrame(offset, slot, rot, animationOffset))
 
-    -- Hands
-    local handSwing = walking and math.sin(animationTime) * math.rad(18) or 0
-    if assigned["Right Hand"] then
-        local cf = getBodyCFrame("Right Hand", cc, robotRotation) * CFrame.Angles(handSwing, 0, 0)
-        moveProp(assigned["Right Hand"], cf)
-    end
-    if assigned["Left Hand"] then
-        local cf = getBodyCFrame("Left Hand", cc, robotRotation) * CFrame.Angles(-handSwing, 0, 0)
-        moveProp(assigned["Left Hand"], cf)
-    end
+                elseif slot == "Waist" then
+                    local rot = CFrame.identity
+                    if moving then
+                        rot = CFrame.Angles(math.rad(opposite * 4), 0, math.rad(cycle * 3))
+                    end
+                    moveProp(prop, bodyCFrame(offset, slot, rot, animationOffset))
 
-    -- Legs (as one plank)
-    local legAngle = 0
-    if walking then legAngle = math.sin(animationTime) * math.rad(20) end
-    if isJumping then legAngle = math.rad(15) end
+                elseif slot == "Right Hand" then
+                    local rot
+                    if jumpState == "Jump" then
+                        rot = CFrame.Angles(math.rad(-35), 0, 0)
+                    elseif moving then
+                        rot = CFrame.Angles(math.rad(cycle * 25), 0, 0)
+                        animationOffset += Vector3.new(0, 0, cycle * 0.12)
+                    else
+                        rot = CFrame.Angles(math.rad(idle * 3), 0, 0)
+                    end
+                    moveProp(prop, bodyCFrame(offset, slot, rot, animationOffset))
 
-    for _, side in ipairs({"Right","Left"}) do
-        local a = (side == "Left") and -legAngle or legAngle
-        for i = 1, 3 do
-            local slot = side .. " Leg " .. i
-            local prop = assigned[slot]
-            if prop then
-                moveProp(prop, getLegCFrame(slot, cc, robotRotation, a))
+                elseif slot == "Left Hand" then
+                    local rot
+                    if jumpState == "Jump" then
+                        rot = CFrame.Angles(math.rad(-35), 0, 0)
+                    elseif moving then
+                        rot = CFrame.Angles(math.rad(opposite * 25), 0, 0)
+                        animationOffset += Vector3.new(0, 0, opposite * 0.12)
+                    else
+                        rot = CFrame.Angles(math.rad(opposite * 3), 0, 0)
+                    end
+                    moveProp(prop, bodyCFrame(offset, slot, rot, animationOffset))
+                end
             end
         end
     end
 end
 
---========================================================--
--- CAMERA
---========================================================--
-local function resetCamera()
-    camYaw = 0
-    camPitch = CONFIG.CameraPitch
-    camDistance = CONFIG.CameraDistance
-end
-
-local function updateCamera()
-    if not controlEnabled or not robotAnchor then return end
-    local cam = workspace.CurrentCamera
-    if not cam then return end
-
-    local center = robotAnchor.Position + Vector3.new(0, 4.0 * CONFIG.RobotHeight, 0)
-    local yaw   = math.rad(camYaw)
-    local pitch = math.rad(math.clamp(camPitch, -75, 75))
-
-    local offset = CFrame.fromEulerAnglesYXZ(pitch, yaw, 0).LookVector * camDistance
-    cam.CFrame = CFrame.lookAt(center - offset, center, Vector3.yAxis)
-end
-
---========================================================--
--- START / STOP
---========================================================--
+--========================================================
+-- START / STOP CONTROL
+--========================================================
 local function startControl()
-    if controlEnabled then return end
-    if not robotLoaded then
-        assembleRobot()
-        if not robotLoaded then return end
-    end
-    if not refreshCharacter() then return end
-
-    originalWalkSpeed   = Humanoid.WalkSpeed
-    originalJumpPower   = Humanoid.JumpPower
-    originalAutoRotate  = Humanoid.AutoRotate
-
-    createAnchor()
-    if not robotAnchor then return end
+    if not robotCenter then assembleRobot() end
+    if not robotCenter then return end
 
     controlEnabled = true
+    controlButton.Text = "CONTROL: ON"
 
-    -- ✅ keep WalkSpeed active so MoveDirection updates on mobile
-    Humanoid.WalkSpeed  = 16
-    Humanoid.JumpPower  = 0
-    Humanoid.AutoRotate = false
-    Humanoid.PlatformStand = true -- stop physics fighting
+    -- ✅ Character walks NORMALLY (native controls work)
+    hrp.Anchored = false
+    humanoid.WalkSpeed = walkSpeed
+    humanoid.JumpPower = jumpPower
+    humanoid.UseJumpPower = true
 
+    -- ✅ Hide character visually
     hideCharacter()
 
-    local cam = workspace.CurrentCamera
-    if cam then cam.CameraType = Enum.CameraType.Scriptable end
-
-    resetCamera()
-
-    Status.Text = "● ROBOT CONTROL ACTIVE"
-    Status.TextColor3 = Color3.fromRGB(120,255,150)
-    ControlButton.Text = "⛔  STOP ROBOT CONTROL"
+    -- ✅ Default Roblox camera on the humanoid
+    camera.CameraType = Enum.CameraType.Custom
+    camera.CameraSubject = humanoid
+    camera.CameraMode = Enum.CameraMode.Classic
 
     startMovement()
 
-    if renderConn then renderConn:Disconnect() end
-    renderConn = RunService.RenderStepped:Connect(function(dt)
-        if controlEnabled then
-            updateAnimation(dt)
-            updateCamera()
-        end
+    if renderConnection then renderConnection:Disconnect() end
+    renderConnection = RunService.RenderStepped:Connect(function(dt)
+        updateAnimation(dt)
     end)
+
+    status.Text = "🎮 WALK WITH WASD / JOYSTICK"
 end
 
 local function stopControl()
     controlEnabled = false
-    isJumping = false
-    jumpVelocity = 0
+    moveAmount = 0
+    jumpState = "Ground"
 
-    if moveConn  then moveConn:Disconnect();  moveConn = nil end
-    if renderConn then renderConn:Disconnect(); renderConn = nil end
+    if movementConnection then movementConnection:Disconnect(); movementConnection = nil end
+    if renderConnection   then renderConnection:Disconnect();   renderConnection   = nil end
 
-    if Humanoid and Humanoid.Parent then
-        Humanoid.WalkSpeed  = originalWalkSpeed or 16
-        Humanoid.JumpPower  = originalJumpPower or 50
-        Humanoid.AutoRotate = originalAutoRotate or true
-        Humanoid.PlatformStand = false
-    end
+    humanoid.WalkSpeed = 16
+    humanoid.JumpPower = 50
+
+    camera.CameraType = Enum.CameraType.Custom
+    camera.CameraSubject = humanoid
 
     showCharacter()
-
-    local cam = workspace.CurrentCamera
-    if cam then
-        cam.CameraType = Enum.CameraType.Custom
-        if Humanoid then cam.CameraSubject = Humanoid end
-    end
-
-    if robotAnchor then robotAnchor:Destroy(); robotAnchor = nil end
-
-    ControlButton.Text = "🎮  START ROBOT CONTROL"
-    Status.Text = "● ROBOT CONTROL STOPPED"
-    Status.TextColor3 = Color3.fromRGB(255,190,100)
-
-    task.delay(0.2, function()
-        if ScreenGui.Parent then assembleRobot() end
-    end)
+    rebuildRobot()
+    controlButton.Text = "CONTROL: OFF"
+    status.Text = "🤖 ROBOT READY"
 end
 
---========================================================--
+--========================================================
 -- BUTTONS
---========================================================--
-LoadButton.MouseButton1Click:Connect(function()
-    if controlEnabled then return end
-    findMyProps()
-end)
-
-AssembleButton.MouseButton1Click:Connect(function()
-    if controlEnabled then return end
-    assembleRobot()
-end)
-
-ControlButton.MouseButton1Click:Connect(function()
+--========================================================
+controlButton.MouseButton1Click:Connect(function()
     if controlEnabled then stopControl() else startControl() end
 end)
 
-CameraResetBtn.MouseButton1Click:Connect(resetCamera)
+loadButton.MouseButton1Click:Connect(function() loadProps() end)
+assembleButton.MouseButton1Click:Connect(function() assembleRobot() end)
 
---========================================================--
--- PC CAMERA
---========================================================--
-UserInputService.InputBegan:Connect(function(input, gp)
-    if gp or not controlEnabled then return end
-    if input.UserInputType == Enum.UserInputType.MouseButton2 then
-        rightMouseDown = true
-        lastMousePos = UserInputService:GetMouseLocation()
-    end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton2 then
-        rightMouseDown = false
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if not controlEnabled then return end
-    if rightMouseDown and input.UserInputType == Enum.UserInputType.MouseMovement then
-        local cur = UserInputService:GetMouseLocation()
-        if lastMousePos then
-            local d = cur - lastMousePos
-            camYaw   -= d.X * 0.35
-            camPitch  = math.clamp(camPitch - d.Y * 0.25, -75, 75)
-        end
-        lastMousePos = cur
-    end
-    if input.UserInputType == Enum.UserInputType.MouseWheel then
-        camDistance = math.clamp(camDistance - input.Position.Z * 2,
-            CONFIG.CameraMinDistance, CONFIG.CameraMaxDistance)
-    end
-end)
-
---========================================================--
--- MOBILE CAMERA
---========================================================--
-UserInputService.TouchStarted:Connect(function(touch)
-    if not controlEnabled then return end
-    local vp = workspace.CurrentCamera.ViewportSize
-    if touch.Position.X > vp.X * 0.35 then
-        mobileCamTouch = touch
-        mobileLastPos  = touch.Position
-    end
-end)
-
-UserInputService.TouchMoved:Connect(function(touch)
-    if not controlEnabled or touch ~= mobileCamTouch then return end
-    if not mobileLastPos then mobileLastPos = touch.Position; return end
-    local d = touch.Position - mobileLastPos
-    camYaw   -= d.X * 0.35
-    camPitch  = math.clamp(camPitch - d.Y * 0.25, -75, 75)
-    mobileLastPos = touch.Position
-end)
-
-UserInputService.TouchEnded:Connect(function(touch)
-    if touch == mobileCamTouch then
-        mobileCamTouch = nil
-        mobileLastPos  = nil
-    end
-end)
-
---========================================================--
--- GUI DRAG
---========================================================--
-local draggingGui, dragStart, startPos
-TitleBar.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1
-    or input.UserInputType == Enum.UserInputType.Touch then
-        draggingGui = true
-        dragStart = input.Position
-        startPos  = Main.Position
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if not draggingGui then return end
-    if input.UserInputType == Enum.UserInputType.MouseMovement
-    or input.UserInputType == Enum.UserInputType.Touch then
-        local d = input.Position - dragStart
-        Main.Position = UDim2.new(
-            startPos.X.Scale, startPos.X.Offset + d.X,
-            startPos.Y.Scale, startPos.Y.Offset + d.Y)
-    end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1
-    or input.UserInputType == Enum.UserInputType.Touch then
-        draggingGui = false
-    end
-end)
-
---========================================================--
--- MINIMIZE / CLOSE
---========================================================--
+--========================================================
+-- MIN / CLOSE
+--========================================================
 local minimized = false
-MinButton.MouseButton1Click:Connect(function()
+minimize.MouseButton1Click:Connect(function()
     minimized = not minimized
-    Content.Visible = not minimized
-    Main.Size = minimized and UDim2.fromOffset(340,42) or UDim2.fromOffset(340,430)
-    MinButton.Text = minimized and "+" or "—"
-end)
-
-CloseButton.MouseButton1Click:Connect(function()
-    stopControl()
-    ScreenGui:Destroy()
-end)
-
---========================================================--
--- RESPAWN
---========================================================--
-Player.CharacterAdded:Connect(function(newChar)
-    Character = newChar
-    task.wait(1)
-    Humanoid = Character:FindFirstChildOfClass("Humanoid")
-    HRP      = Character:FindFirstChild("HumanoidRootPart")
-    if controlEnabled then stopControl() end
-end)
-
---========================================================--
--- INIT
---========================================================--
-task.defer(function()
-    task.wait(0.5)
-    if findPropsFolder() then
-        findMyProps()
+    scroll.Visible = not minimized
+    resize.Visible = not minimized
+    if minimized then
+        main.Size = UDim2.fromOffset(190, 34)
+        minimize.Text = "+"
     else
-        Status.Text = "● GUI READY • LOAD PROPS"
-        Status.TextColor3 = Color3.fromRGB(120,255,150)
+        main.Size = UDim2.fromOffset(190, 230)
+        minimize.Text = "—"
     end
 end)
 
-print("================================================")
-print("🎃 MANI PUMPKIN ROBO V.1 — DELTA READY")
-print("✅ GUI LOADED")
-print("✅ Mobile + PC")
-print("✅ Robot Control + Animation + Camera")
-print("================================================")
+close.MouseButton1Click:Connect(function()
+    stopControl()
+    gui:Destroy()
+end)
+
+--========================================================
+-- RESPAWN
+--========================================================
+player.CharacterAdded:Connect(function(newCharacter)
+    if controlEnabled then stopControl() end
+    character = newCharacter
+    humanoid = character:WaitForChild("Humanoid")
+    hrp = character:WaitForChild("HumanoidRootPart")
+end)
+
+updateSlots()
+print("🎃 MANI PUMPKIN ROBO V.3.5 LOADED")
