@@ -1,14 +1,15 @@
 --========================================================
--- 🎃 MANI PUMPKIN ROBO V.3.2
--- Default Roblox Camera | Legs as Planes | Head 360
--- Fix: Waist/Hand flip | Ground-anchored height
+-- 🎃 MANI PUMPKIN ROBO V.3.3
+-- ✅ Working Control | Default Roblox Camera
+-- ✅ Legs as one plank | Waist/Hands flipped
+-- ✅ Head 360° | Height grows UP | Compact GUI
 --========================================================
 
 repeat task.wait() until game:IsLoaded()
 
-local Players         = game:GetService("Players")
-local RunService      = game:GetService("RunService")
-local UserInputService= game:GetService("UserInputService")
+local Players          = game:GetService("Players")
+local RunService       = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 local player    = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
@@ -24,9 +25,29 @@ local propsFolder =
     and workspace.WorkspaceCom:FindFirstChild("001_TrafficCones")
 
 if not propsFolder then
-    warn("❌ WorkspaceCom > 001_TrafficCones nahi mila")
+    warn("❌ WorkspaceCom > 001_TrafficCones not found")
     return
 end
+
+--========================================================
+-- ✅ Get PlayerModule Controls (works on PC + Mobile)
+--========================================================
+local PlayerModule
+local Controls
+
+local function setupControls()
+    local ps = player:WaitForChild("PlayerScripts")
+    local pm = ps:WaitForChild("PlayerModule", 10)
+    if not pm then
+        warn("❌ PlayerModule not found")
+        return false
+    end
+    PlayerModule = require(pm)
+    Controls = PlayerModule:GetControls()
+    return Controls ~= nil
+end
+
+setupControls()
 
 --========================================================
 -- SLOTS
@@ -38,62 +59,53 @@ local SLOTS = {
 }
 
 --========================================================
--- BASE OFFSETS (bottom of legs = Y 0, so height grows UP)
+-- BASE OFFSETS (bottom of legs = 0 → height grows UP)
 --========================================================
 local BASE_OFFSETS = {
-    Head          = Vector3.new( 0,    7.9, 0),
-    Waist         = Vector3.new( 0,    4.6, 0),
-    ["Right Hand"]= Vector3.new( 3.0,  4.9, 0),
-    ["Left Hand"] = Vector3.new(-3.0,  4.9, 0),
-    ["Right Leg 1"]=Vector3.new( 1.45, 2.7, 0),
-    ["Right Leg 2"]=Vector3.new( 1.45, 1.35,0),
-    ["Right Leg 3"]=Vector3.new( 1.45, 0,   0),
-    ["Left Leg 1"] =Vector3.new(-1.45, 2.7, 0),
-    ["Left Leg 2"] =Vector3.new(-1.45, 1.35,0),
-    ["Left Leg 3"] =Vector3.new(-1.45, 0,   0),
+    Head           = Vector3.new( 0,    7.9, 0),
+    Waist          = Vector3.new( 0,    4.6, 0),
+    ["Right Hand"] = Vector3.new( 3.0,  4.9, 0),
+    ["Left Hand"]  = Vector3.new(-3.0,  4.9, 0),
+    ["Right Leg 1"]= Vector3.new( 1.45, 2.7, 0),
+    ["Right Leg 2"]= Vector3.new( 1.45, 1.35,0),
+    ["Right Leg 3"]= Vector3.new( 1.45, 0,   0),
+    ["Left Leg 1"] = Vector3.new(-1.45, 2.7, 0),
+    ["Left Leg 2"] = Vector3.new(-1.45, 1.35,0),
+    ["Left Leg 3"] = Vector3.new(-1.45, 0,   0),
 }
 
 --========================================================
--- PART CORRECTION (flip inverted props)
+-- PART CORRECTION (flip waist / hands)
 --========================================================
 local PART_CORRECTION = {
     ["Head"]       = CFrame.identity,
-    ["Waist"]      = CFrame.Angles(0, math.rad(180), 0), -- flipped
-    ["Right Hand"] = CFrame.Angles(0, math.rad(180), 0), -- flipped
-    ["Left Hand"]  = CFrame.Angles(0, math.rad(180), 0), -- flipped
+    ["Waist"]      = CFrame.Angles(0, math.rad(180), 0),
+    ["Right Hand"] = CFrame.Angles(0, math.rad(180), 0),
+    ["Left Hand"]  = CFrame.Angles(0, math.rad(180), 0),
 }
 
---========================================================
--- LEG HIP PIVOT
---========================================================
-local HIP_Y = 2.7  -- hip Y in base offsets (top of legs)
+local HIP_Y = 2.7
 
 --========================================================
 -- SETTINGS
 --========================================================
-local robotHeight   = 1
-local propDistance  = 1
-local walkSpeed     = 28
-local jumpPower     = 55
-local controlEnabled= false
-local headFollowCam = true   -- head looks where camera looks
+local robotHeight    = 1
+local propDistance   = 1
+local walkSpeed      = 28
+local jumpPower      = 55
+local controlEnabled = false
+local headFollowCam  = true
 
 local registeredProps = {}
 local robotCenter, robotRotation, robotAnchor = nil, nil, nil
 local movementConnection, renderConnection = nil, nil
 
---========================================================
--- ANIM STATE
---========================================================
 local animClock, moveAmount = 0, 0
 local jumpState, jumpVelocity, verticalOffset = "Ground", 0, 0
 local ANIMATION_RATE = 1/30
 local animationAccumulator = 0
 
---========================================================
--- CAMERA STATE
---========================================================
-local oldCameraType, oldCameraSubject
+local oldCameraType, oldCameraSubject, oldCameraMode
 
 --========================================================
 -- GUI
@@ -113,7 +125,6 @@ main.Active = true
 main.Parent = gui
 Instance.new("UICorner", main).CornerRadius = UDim.new(0, 12)
 
--- Title
 local titleBar = Instance.new("Frame")
 titleBar.Size = UDim2.new(1, 0, 0, 34)
 titleBar.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
@@ -125,7 +136,7 @@ local title = Instance.new("TextLabel")
 title.BackgroundTransparency = 1
 title.Position = UDim2.fromOffset(8, 3)
 title.Size = UDim2.new(1, -60, 0, 28)
-title.Text = "🎃 MANI PUMPKIN V.3.2"
+title.Text = "🎃 MANI PUMPKIN V.3.3"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.TextSize = 10
 title.Font = Enum.Font.GothamBold
@@ -196,7 +207,6 @@ content.BackgroundTransparency = 1
 content.Size = UDim2.new(1, -6, 0, 600)
 content.Parent = scroll
 
--- Status
 local status = Instance.new("TextLabel")
 status.BackgroundTransparency = 1
 status.Position = UDim2.fromOffset(4, 0)
@@ -208,7 +218,6 @@ status.Font = Enum.Font.GothamBold
 status.TextXAlignment = Enum.TextXAlignment.Left
 status.Parent = content
 
--- Slot list
 local slotFrame = Instance.new("Frame")
 slotFrame.Position = UDim2.fromOffset(4, 25)
 slotFrame.Size = UDim2.new(1, -8, 0, 138)
@@ -235,7 +244,6 @@ for i = 1, 10 do
     slotLabels[i] = label
 end
 
--- Button maker
 local function button(text, y)
     local b = Instance.new("TextButton")
     b.Position = UDim2.fromOffset(4, y)
@@ -282,13 +290,11 @@ local distanceLabel, distanceMinus, distancePlus = makeValueRow("DISTANCE",   26
 local speedLabel,    speedMinus,    speedPlus    = makeValueRow("WALK SPD",   292, walkSpeed)
 local jumpLabel,     jumpMinus,     jumpPlus     = makeValueRow("JUMP PWR",   322, jumpPower)
 
--- Head Follow Camera toggle
-local headToggle = button("HEAD 360° FOLLOW CAM: ON", 358)
+local headToggle = button("HEAD 360° FOLLOW: ON", 358)
 headToggle.TextSize = 8
 
 local controlButton = button("CONTROL: OFF", 390)
 
--- Camera info
 local cameraInfo = Instance.new("TextLabel")
 cameraInfo.Position = UDim2.fromOffset(4, 424)
 cameraInfo.Size = UDim2.new(1, -8, 0, 48)
@@ -302,7 +308,6 @@ cameraInfo.TextXAlignment = Enum.TextXAlignment.Left
 cameraInfo.Parent = content
 Instance.new("UICorner", cameraInfo).CornerRadius = UDim.new(0, 7)
 
--- Resize handle
 local resize = Instance.new("TextButton")
 resize.Size = UDim2.fromOffset(16, 16)
 resize.Position = UDim2.new(1, -16, 1, -16)
@@ -391,17 +396,15 @@ local function bodyCFrame(offset, slot, rotationOffset, extraOffset)
         + extraOffset
 
     local correction = PART_CORRECTION[slot] or CFrame.identity
-
     return CFrame.new(pos, pos + forward) * correction * rotationOffset
 end
 
 --========================================================
--- LEG CFRAME — pivot at hip so all 3 parts swing together
+-- LEG CFRAME (rotate 3 parts around one hip pivot)
 --========================================================
 local function legBodyCFrame(offset, angle, extraOffset)
     extraOffset = extraOffset or Vector3.zero
 
-    -- rotate part-local position around hip pivot (X-axis rotation)
     local relY = offset.Y - HIP_Y
     local relZ = offset.Z
     local cosA, sinA = math.cos(angle), math.sin(angle)
@@ -457,9 +460,6 @@ local function assembleRobot()
     status.Text = "🤖 ROBOT READY"
 end
 
---========================================================
--- REBUILD (static)
---========================================================
 local function rebuildRobot()
     if not robotCenter or not robotRotation then return end
     for i = 1, 10 do
@@ -519,7 +519,7 @@ end)
 
 headToggle.MouseButton1Click:Connect(function()
     headFollowCam = not headFollowCam
-    headToggle.Text = "HEAD 360° FOLLOW CAM: " .. (headFollowCam and "ON" or "OFF")
+    headToggle.Text = "HEAD 360° FOLLOW: " .. (headFollowCam and "ON" or "OFF")
 end)
 
 --========================================================
@@ -529,7 +529,7 @@ local function createAnchor()
     if robotAnchor then robotAnchor:Destroy() end
     robotAnchor = Instance.new("Part")
     robotAnchor.Name = "MANI_ROBO_ANCHOR"
-    robotAnchor.Size = Vector3.new(2, 1, 2)
+    robotAnchor.Size = Vector3.new(2, 4, 2)
     robotAnchor.Transparency = 1
     robotAnchor.Anchored = true
     robotAnchor.CanCollide = false
@@ -550,28 +550,53 @@ UserInputService.JumpRequest:Connect(function()
 end)
 
 --========================================================
--- MOVEMENT
+-- ✅ MOVEMENT (uses PlayerModule → works PC + Mobile)
 --========================================================
+local function getMoveVector()
+    if Controls and Controls.GetMoveVector then
+        local ok, v = pcall(function() return Controls:GetMoveVector() end)
+        if ok and v then return v end
+    end
+    return Vector3.zero
+end
+
 local function startMovement()
     if movementConnection then movementConnection:Disconnect() end
 
     movementConnection = RunService.Heartbeat:Connect(function(dt)
         if not controlEnabled or not robotAnchor then return end
 
-        local direction = humanoid.MoveDirection
-        if direction.Magnitude > 0.05 then
-            local flat = Vector3.new(direction.X, 0, direction.Z)
-            if flat.Magnitude > 0 then
-                flat = flat.Unit
-                local newPos = robotAnchor.Position + flat * walkSpeed * dt
-                local target = CFrame.lookAt(newPos, newPos + flat)
-                robotAnchor.CFrame = robotAnchor.CFrame:Lerp(target, math.clamp(12 * dt, 0, 1))
-            end
+        -- ✅ Read input from PlayerModule (works on PC + Mobile joystick)
+        local rawInput = getMoveVector()
+
+        -- Convert to camera-relative world direction
+        local camLook  = camera.CFrame.LookVector
+        local camRight = camera.CFrame.RightVector
+        camLook  = Vector3.new(camLook.X, 0, camLook.Z)
+        camRight = Vector3.new(camRight.X, 0, camRight.Z)
+
+        local worldDir = Vector3.zero
+        if camLook.Magnitude > 0.01 then
+            camLook = camLook.Unit
+        end
+        if camRight.Magnitude > 0.01 then
+            camRight = camRight.Unit
+        end
+
+        -- rawInput.Z is forward/back, rawInput.X is left/right
+        worldDir = camLook * (-rawInput.Z) + camRight * rawInput.X
+
+        if worldDir.Magnitude > 0.05 then
+            worldDir = worldDir.Unit
+            local newPos = robotAnchor.Position + worldDir * walkSpeed * dt
+            local target = CFrame.lookAt(newPos, newPos + worldDir)
+            robotAnchor.CFrame = robotAnchor.CFrame:Lerp(target, math.clamp(12 * dt, 0, 1))
             moveAmount = math.clamp(moveAmount + dt * 7, 0, 1)
         else
             moveAmount = math.clamp(moveAmount - dt * 8, 0, 1)
         end
 
+        -- Jump
         if jumpState == "Jump" then
             jumpVelocity -= 100 * dt
             verticalOffset += jumpVelocity * dt
@@ -588,7 +613,7 @@ local function startMovement()
 end
 
 --========================================================
--- HEAD YAW from camera (for 360° human-like follow)
+-- HEAD YAW (360° follow camera)
 --========================================================
 local function getHeadYaw()
     if not robotAnchor then return 0 end
@@ -628,7 +653,6 @@ local function updateAnimation(dt)
     local walkBob = (moving and jumpState == "Ground") and (math.abs(cycle) * 0.10) or 0
     local jumpBob = (jumpState == "Jump") and 0.15 or 0
 
-    -- Leg swing (same for all 3 parts per side)
     local rightLegAngle, leftLegAngle = 0, 0
     if jumpState == "Jump" then
         rightLegAngle = math.rad(15)
@@ -638,7 +662,6 @@ local function updateAnimation(dt)
         leftLegAngle  = math.rad(cycle    * 25)
     end
 
-    -- Head 360 follow
     local headYawAngle = 0
     if headFollowCam then
         headYawAngle = getHeadYaw()
@@ -652,13 +675,11 @@ local function updateAnimation(dt)
             if offset then
                 local animationOffset = Vector3.new(0, idleBob + walkBob + jumpBob, 0)
 
-                -- LEGS: swing as one plank
                 if string.find(slot, "Right Leg") then
                     moveProp(prop, legBodyCFrame(offset, rightLegAngle, animationOffset))
                 elseif string.find(slot, "Left Leg") then
                     moveProp(prop, legBodyCFrame(offset, leftLegAngle, animationOffset))
 
-                -- HEAD: 360 + idle
                 elseif slot == "Head" then
                     local rot
                     if moving then
@@ -668,7 +689,6 @@ local function updateAnimation(dt)
                     end
                     moveProp(prop, bodyCFrame(offset, slot, rot, animationOffset))
 
-                -- WAIST
                 elseif slot == "Waist" then
                     local rot = CFrame.identity
                     if moving then
@@ -676,7 +696,6 @@ local function updateAnimation(dt)
                     end
                     moveProp(prop, bodyCFrame(offset, slot, rot, animationOffset))
 
-                -- RIGHT HAND
                 elseif slot == "Right Hand" then
                     local rot
                     if jumpState == "Jump" then
@@ -689,7 +708,6 @@ local function updateAnimation(dt)
                     end
                     moveProp(prop, bodyCFrame(offset, slot, rot, animationOffset))
 
-                -- LEFT HAND
                 elseif slot == "Left Hand" then
                     local rot
                     if jumpState == "Jump" then
@@ -714,17 +732,21 @@ local function startControl()
     if not robotCenter then assembleRobot() end
     if not robotCenter then return end
 
+    if not Controls then setupControls() end
+
     createAnchor()
     controlEnabled = true
     controlButton.Text = "CONTROL: ON"
 
+    -- Freeze player character so it doesn't walk away
     hrp.Anchored = true
-    humanoid.WalkSpeed = 16
-    humanoid.JumpPower = 50
+    humanoid.WalkSpeed = 0
+    humanoid.JumpPower = 0
 
-    -- ✅ Use DEFAULT Roblox camera behavior
+    -- ✅ Use default Roblox camera on the anchor
     oldCameraType    = camera.CameraType
     oldCameraSubject = camera.CameraSubject
+    oldCameraMode    = camera.CameraMode
 
     camera.CameraType    = Enum.CameraType.Custom
     camera.CameraSubject = robotAnchor
@@ -753,6 +775,7 @@ local function stopControl()
 
     camera.CameraType    = oldCameraType or Enum.CameraType.Custom
     camera.CameraSubject = oldCameraSubject or humanoid
+    camera.CameraMode    = oldCameraMode or Enum.CameraMode.Classic
 
     rebuildRobot()
     controlButton.Text = "CONTROL: OFF"
@@ -800,10 +823,12 @@ player.CharacterAdded:Connect(function(newCharacter)
     character = newCharacter
     humanoid = character:WaitForChild("Humanoid")
     hrp = character:WaitForChild("HumanoidRootPart")
+    task.wait(0.5)
+    setupControls()
 end)
 
 --========================================================
 -- INIT
 --========================================================
 updateSlots()
-print("🎃 MANI PUMPKIN ROBO V.3.2 LOADED")
+print("🎃 MANI PUMPKIN ROBO V.3.3 LOADED")
