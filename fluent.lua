@@ -1,8 +1,6 @@
 --========================================================
--- 🎃 MANI PUMPKIN ROBO V.3.3
--- ✅ Working Control | Default Roblox Camera
--- ✅ Legs as one plank | Waist/Hands flipped
--- ✅ Head 360° | Height grows UP | Compact GUI
+-- 🎃 MANI PUMPKIN ROBO V.3.4
+-- OWN CAMERA + OWN CONTROL (PC + Mobile)
 --========================================================
 
 repeat task.wait() until game:IsLoaded()
@@ -30,26 +28,6 @@ if not propsFolder then
 end
 
 --========================================================
--- ✅ Get PlayerModule Controls (works on PC + Mobile)
---========================================================
-local PlayerModule
-local Controls
-
-local function setupControls()
-    local ps = player:WaitForChild("PlayerScripts")
-    local pm = ps:WaitForChild("PlayerModule", 10)
-    if not pm then
-        warn("❌ PlayerModule not found")
-        return false
-    end
-    PlayerModule = require(pm)
-    Controls = PlayerModule:GetControls()
-    return Controls ~= nil
-end
-
-setupControls()
-
---========================================================
 -- SLOTS
 --========================================================
 local SLOTS = {
@@ -59,7 +37,7 @@ local SLOTS = {
 }
 
 --========================================================
--- BASE OFFSETS (bottom of legs = 0 → height grows UP)
+-- BASE OFFSETS
 --========================================================
 local BASE_OFFSETS = {
     Head           = Vector3.new( 0,    7.9, 0),
@@ -75,7 +53,7 @@ local BASE_OFFSETS = {
 }
 
 --========================================================
--- PART CORRECTION (flip waist / hands)
+-- PART CORRECTION
 --========================================================
 local PART_CORRECTION = {
     ["Head"]       = CFrame.identity,
@@ -105,7 +83,16 @@ local jumpState, jumpVelocity, verticalOffset = "Ground", 0, 0
 local ANIMATION_RATE = 1/30
 local animationAccumulator = 0
 
-local oldCameraType, oldCameraSubject, oldCameraMode
+--========================================================
+-- CAMERA STATE (own camera)
+--========================================================
+local camYaw, camPitch, camDist = 0, 12, 18
+local targetCamYaw, targetCamPitch, targetCamDist = 0, 12, 18
+local cameraDragging = false
+local camDragStart, camYawStart, camPitchStart
+
+local CAM_MIN_DIST, CAM_MAX_DIST = 4, 120
+local CAM_MIN_PITCH, CAM_MAX_PITCH = -70, 70
 
 --========================================================
 -- GUI
@@ -136,7 +123,7 @@ local title = Instance.new("TextLabel")
 title.BackgroundTransparency = 1
 title.Position = UDim2.fromOffset(8, 3)
 title.Size = UDim2.new(1, -60, 0, 28)
-title.Text = "🎃 MANI PUMPKIN V.3.3"
+title.Text = "🎃 MANI PUMPKIN V.3.4"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.TextSize = 10
 title.Font = Enum.Font.GothamBold
@@ -165,7 +152,7 @@ close.BorderSizePixel = 0
 close.Parent = titleBar
 Instance.new("UICorner", close).CornerRadius = UDim.new(0, 6)
 
--- Drag
+-- Drag GUI
 local guiDragging, guiDragStart, guiStartPosition = false, nil, nil
 titleBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1
@@ -192,7 +179,6 @@ UserInputService.InputEnded:Connect(function(input)
     end
 end)
 
--- Scroll
 local scroll = Instance.new("ScrollingFrame")
 scroll.Position = UDim2.fromOffset(6, 40)
 scroll.Size = UDim2.new(1, -12, 1, -46)
@@ -300,7 +286,7 @@ cameraInfo.Position = UDim2.fromOffset(4, 424)
 cameraInfo.Size = UDim2.new(1, -8, 0, 48)
 cameraInfo.BackgroundColor3 = Color3.fromRGB(24, 24, 29)
 cameraInfo.BorderSizePixel = 0
-cameraInfo.Text = "CAMERA (Default Roblox)\nPC: RMB Drag • Wheel Zoom\nMobile: Drag • Pinch Zoom"
+cameraInfo.Text = "CAMERA (Custom)\nPC: RMB Drag • Wheel Zoom\nMobile: Drag right side"
 cameraInfo.TextColor3 = Color3.fromRGB(160, 160, 170)
 cameraInfo.TextSize = 8
 cameraInfo.Font = Enum.Font.GothamMedium
@@ -400,7 +386,7 @@ local function bodyCFrame(offset, slot, rotationOffset, extraOffset)
 end
 
 --========================================================
--- LEG CFRAME (rotate 3 parts around one hip pivot)
+-- LEG CFRAME (rotate 3 parts around hip)
 --========================================================
 local function legBodyCFrame(offset, angle, extraOffset)
     extraOffset = extraOffset or Vector3.zero
@@ -540,63 +526,34 @@ local function createAnchor()
 end
 
 --========================================================
--- JUMP
+-- ✅ OWN MOVEMENT (uses humanoid.MoveDirection — works PC + Mobile)
 --========================================================
-UserInputService.JumpRequest:Connect(function()
-    if not controlEnabled then return end
-    if jumpState ~= "Ground" then return end
-    jumpState = "Jump"
-    jumpVelocity = jumpPower
-end)
-
---========================================================
--- ✅ MOVEMENT (uses PlayerModule → works PC + Mobile)
---========================================================
-local function getMoveVector()
-    if Controls and Controls.GetMoveVector then
-        local ok, v = pcall(function() return Controls:GetMoveVector() end)
-        if ok and v then return v end
-    end
-    return Vector3.zero
-end
-
 local function startMovement()
     if movementConnection then movementConnection:Disconnect() end
 
     movementConnection = RunService.Heartbeat:Connect(function(dt)
         if not controlEnabled or not robotAnchor then return end
 
-        -- ✅ Read input from PlayerModule (works on PC + Mobile joystick)
-        local rawInput = getMoveVector()
-
-        -- Convert to camera-relative world direction
-        local camLook  = camera.CFrame.LookVector
-        local camRight = camera.CFrame.RightVector
-        camLook  = Vector3.new(camLook.X, 0, camLook.Z)
-        camRight = Vector3.new(camRight.X, 0, camRight.Z)
-
-        local worldDir = Vector3.zero
-        if camLook.Magnitude > 0.01 then
-            camLook = camLook.Unit
-        end
-        if camRight.Magnitude > 0.01 then
-            camRight = camRight.Unit
+        -- Keep player HRP synced to robot (invisible inside robot)
+        if hrp and hrp.Parent then
+            hrp.CFrame = robotAnchor.CFrame
         end
 
-        -- rawInput.Z is forward/back, rawInput.X is left/right
-        worldDir = camLook * (-rawInput.Z) + camRight * rawInput.X
+        -- ✅ MoveDirection works on PC + Mobile because HRP is unanchored
+        local dir = humanoid.MoveDirection
+        local flat = Vector3.new(dir.X, 0, dir.Z)
 
-        if worldDir.Magnitude > 0.05 then
-            worldDir = worldDir.Unit
-            local newPos = robotAnchor.Position + worldDir * walkSpeed * dt
-            local target = CFrame.lookAt(newPos, newPos + worldDir)
+        if flat.Magnitude > 0.05 then
+            flat = flat.Unit
+            local newPos = robotAnchor.Position + flat * walkSpeed * dt
+            local target = CFrame.lookAt(newPos, newPos + flat)
             robotAnchor.CFrame = robotAnchor.CFrame:Lerp(target, math.clamp(12 * dt, 0, 1))
             moveAmount = math.clamp(moveAmount + dt * 7, 0, 1)
         else
             moveAmount = math.clamp(moveAmount - dt * 8, 0, 1)
         end
 
-        -- Jump
+        -- Jump physics
         if jumpState == "Jump" then
             jumpVelocity -= 100 * dt
             verticalOffset += jumpVelocity * dt
@@ -613,7 +570,7 @@ local function startMovement()
 end
 
 --========================================================
--- HEAD YAW (360° follow camera)
+-- HEAD YAW
 --========================================================
 local function getHeadYaw()
     if not robotAnchor then return 0 end
@@ -662,10 +619,7 @@ local function updateAnimation(dt)
         leftLegAngle  = math.rad(cycle    * 25)
     end
 
-    local headYawAngle = 0
-    if headFollowCam then
-        headYawAngle = getHeadYaw()
-    end
+    local headYawAngle = headFollowCam and getHeadYaw() or 0
 
     for i = 1, 10 do
         local prop = registeredProps[i]
@@ -726,37 +680,186 @@ local function updateAnimation(dt)
 end
 
 --========================================================
+-- ✅ OWN CAMERA (PC + Mobile)
+--========================================================
+-- PC camera drag (RMB)
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp or not controlEnabled then return end
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        cameraDragging = true
+        camDragStart  = input.Position
+        camYawStart   = targetCamYaw
+        camPitchStart = targetCamPitch
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if not controlEnabled then return end
+
+    if input.UserInputType == Enum.UserInputType.MouseMovement and cameraDragging then
+        local d = input.Position - camDragStart
+        targetCamYaw   = camYawStart - d.X * 0.4
+        targetCamPitch = math.clamp(camPitchStart - d.Y * 0.3, CAM_MIN_PITCH, CAM_MAX_PITCH)
+    end
+
+    if input.UserInputType == Enum.UserInputType.MouseWheel then
+        targetCamDist = math.clamp(targetCamDist - input.Position.Z * 3, CAM_MIN_DIST, CAM_MAX_DIST)
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        cameraDragging = false
+    end
+end)
+
+-- Mobile camera drag (right side of screen) + pinch zoom
+local mobileTouchId  = nil
+local mobilePinching = false
+local pinchStartDist, pinchStartZoom = 0, 0
+local secondTouch    = nil
+
+UserInputService.TouchStarted:Connect(function(touch)
+    if not controlEnabled then return end
+
+    -- Ignore touches on the GUI
+    if gui:FindFirstChild("Main") then
+        -- already handled by GUI
+    end
+
+    -- Right side of screen → camera drag
+    if touch.Position.X > camera.ViewportSize.X * 0.35 then
+        if not mobileTouchId then
+            mobileTouchId  = touch
+            camDragStart   = touch.Position
+            camYawStart    = targetCamYaw
+            camPitchStart  = targetCamPitch
+        elseif not secondTouch then
+            secondTouch      = touch
+            mobilePinching   = true
+            pinchStartDist   = (mobileTouchId.Position - secondTouch.Position).Magnitude
+            pinchStartZoom   = targetCamDist
+        end
+    end
+end)
+
+UserInputService.TouchMoved:Connect(function(touch)
+    if not controlEnabled then return end
+
+    if touch == mobileTouchId and not mobilePinching then
+        local d = touch.Position - camDragStart
+        targetCamYaw   = camYawStart - d.X * 0.4
+        targetCamPitch = math.clamp(camPitchStart - d.Y * 0.3, CAM_MIN_PITCH, CAM_MAX_PITCH)
+    elseif mobilePinching and mobileTouchId and secondTouch then
+        local p1 = (touch == mobileTouchId) and touch.Position or mobileTouchId.Position
+        local p2 = (touch == secondTouch)   and touch.Position or secondTouch.Position
+        local d = (p1 - p2).Magnitude
+        if pinchStartDist > 0 then
+            targetCamDist = math.clamp(pinchStartZoom * (pinchStartDist / d), CAM_MIN_DIST, CAM_MAX_DIST)
+        end
+    end
+end)
+
+UserInputService.TouchEnded:Connect(function(touch)
+    if touch == mobileTouchId then
+        mobileTouchId = nil
+        if secondTouch then
+            mobileTouchId = secondTouch
+            secondTouch = nil
+            camDragStart = mobileTouchId.Position
+            camYawStart  = targetCamYaw
+            camPitchStart= targetCamPitch
+        end
+        mobilePinching = false
+    elseif touch == secondTouch then
+        secondTouch = nil
+        mobilePinching = false
+    end
+end)
+
+local function updateCamera(dt)
+    if not controlEnabled or not robotAnchor then return end
+
+    camYaw   = camYaw   + (targetCamYaw   - camYaw)   * math.clamp(10 * dt, 0, 1)
+    camPitch = camPitch + (targetCamPitch - camPitch) * math.clamp(10 * dt, 0, 1)
+    camDist  = camDist  + (targetCamDist  - camDist)  * math.clamp(8  * dt, 0, 1)
+
+    local center = robotAnchor.Position + Vector3.new(0, 3.2 * robotHeight, 0)
+
+    local rot = CFrame.Angles(0, math.rad(camYaw), 0)
+              * CFrame.Angles(math.rad(camPitch), 0, 0)
+
+    local desired = center - rot.LookVector * camDist
+    camera.CFrame = CFrame.lookAt(desired, center)
+end
+
+--========================================================
+-- JUMP input (mobile + PC)
+--========================================================
+UserInputService.JumpRequest:Connect(function()
+    if not controlEnabled then return end
+    if jumpState ~= "Ground" then return end
+    jumpState    = "Jump"
+    jumpVelocity = jumpPower
+end)
+
+--========================================================
+-- HIDE / SHOW PLAYER CHARACTER
+--========================================================
+local hiddenState = {}
+
+local function hideCharacter()
+    hiddenState = {}
+    for _, part in ipairs(character:GetDescendants()) do
+        if part:IsA("BasePart") or part:IsA("Decal") then
+            hiddenState[part] = {t = part.Transparency, c = part.CanCollide}
+            part.Transparency = 1
+            if part:IsA("BasePart") then part.CanCollide = false end
+        end
+    end
+end
+
+local function showCharacter()
+    for part, s in pairs(hiddenState) do
+        if part and part.Parent then
+            part.Transparency = s.t
+            if part:IsA("BasePart") then part.CanCollide = s.c end
+        end
+    end
+    hiddenState = {}
+end
+
+--========================================================
 -- START / STOP CONTROL
 --========================================================
 local function startControl()
     if not robotCenter then assembleRobot() end
     if not robotCenter then return end
 
-    if not Controls then setupControls() end
-
     createAnchor()
     controlEnabled = true
     controlButton.Text = "CONTROL: ON"
 
-    -- Freeze player character so it doesn't walk away
-    hrp.Anchored = true
+    -- ✅ Keep HRP UNANCHORED so MoveDirection updates (PC + Mobile)
+    hrp.Anchored = false
     humanoid.WalkSpeed = 0
     humanoid.JumpPower = 0
+    hrp.CFrame = robotAnchor.CFrame
 
-    -- ✅ Use default Roblox camera on the anchor
-    oldCameraType    = camera.CameraType
-    oldCameraSubject = camera.CameraSubject
-    oldCameraMode    = camera.CameraMode
+    hideCharacter()
 
-    camera.CameraType    = Enum.CameraType.Custom
-    camera.CameraSubject = robotAnchor
-    camera.CameraMode    = Enum.CameraMode.Classic
+    -- Custom camera
+    camera.CameraType = Enum.CameraType.Scriptable
+
+    targetCamYaw, targetCamPitch, targetCamDist = 0, 12, 18
+    camYaw, camPitch, camDist = 0, 12, 18
 
     startMovement()
 
     if renderConnection then renderConnection:Disconnect() end
     renderConnection = RunService.RenderStepped:Connect(function(dt)
         updateAnimation(dt)
+        updateCamera(dt)
     end)
 end
 
@@ -773,10 +876,10 @@ local function stopControl()
     humanoid.WalkSpeed = 16
     humanoid.JumpPower = 50
 
-    camera.CameraType    = oldCameraType or Enum.CameraType.Custom
-    camera.CameraSubject = oldCameraSubject or humanoid
-    camera.CameraMode    = oldCameraMode or Enum.CameraMode.Classic
+    camera.CameraType    = Enum.CameraType.Custom
+    camera.CameraSubject = humanoid
 
+    showCharacter()
     rebuildRobot()
     controlButton.Text = "CONTROL: OFF"
 
@@ -823,12 +926,10 @@ player.CharacterAdded:Connect(function(newCharacter)
     character = newCharacter
     humanoid = character:WaitForChild("Humanoid")
     hrp = character:WaitForChild("HumanoidRootPart")
-    task.wait(0.5)
-    setupControls()
 end)
 
 --========================================================
 -- INIT
 --========================================================
 updateSlots()
-print("🎃 MANI PUMPKIN ROBO V.3.3 LOADED")
+print("🎃 MANI PUMPKIN ROBO V.3.4 LOADED")
