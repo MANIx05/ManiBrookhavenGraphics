@@ -1,2760 +1,1888 @@
---========================================================
--- 🎃 MANI PUMPKIN ROBO V.3
--- 10 PROP CUSTOM ROBOT
--- PC + MOBILE
--- CUSTOM IDLE / WALK / JUMP
--- 360 CAMERA
---========================================================
+--// MANI PUMPKIN ROBO V.4
+--// 10 PROP ROBOT | PC + MOBILE
+--// LocalScript
 
 repeat task.wait() until game:IsLoaded()
 
---========================================================
+--==================================================
 -- SERVICES
---========================================================
+--==================================================
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local GuiService = game:GetService("GuiService")
 
-local player = Players.LocalPlayer
+local LocalPlayer = Players.LocalPlayer
 
-local character =
-    player.Character or player.CharacterAdded:Wait()
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+local HRP = Character:WaitForChild("HumanoidRootPart")
 
-local humanoid =
-    character:WaitForChild("Humanoid")
+--==================================================
+-- CONFIG
+--==================================================
 
-local hrp =
-    character:WaitForChild("HumanoidRootPart")
+local CONFIG = {
+    PropsFolder = {"WorkspaceCom", "001_TrafficCones"},
 
-local camera =
-    workspace.CurrentCamera
+    MaxProps = 10,
 
---========================================================
+    RobotHeight = 1,
+    RobotHeightMin = 0.6,
+    RobotHeightMax = 2.0,
+    RobotHeightStep = 0.1,
+
+    PropSpacing = 1,
+    PropSpacingMin = 0.6,
+    PropSpacingMax = 1.8,
+    PropSpacingStep = 0.1,
+
+    HeadHeight = 7.2,
+    HeadHeightMin = 5.0,
+    HeadHeightMax = 10.0,
+    HeadHeightStep = 0.2,
+
+    WalkSpeed = 40,
+    WalkSpeedMin = 5,
+    WalkSpeedMax = 100,
+    WalkSpeedStep = 5,
+
+    JumpPower = 50,
+    JumpPowerMin = 10,
+    JumpPowerMax = 120,
+    JumpPowerStep = 5,
+
+    CameraDistance = 22,
+    CameraMinDistance = 8,
+    CameraMaxDistance = 45,
+
+    CameraHeight = 8,
+
+    Smoothness = 10,
+}
+
+--==================================================
+-- STATE
+--==================================================
+
+local RobotEnabled = false
+local RobotLoaded = false
+
+local RobotPosition = HRP.Position
+local RobotForward = Vector3.new(0, 0, -1)
+
+local CameraYaw = 0
+local CameraPitch = math.rad(12)
+local CameraDistance = CONFIG.CameraDistance
+
+local WalkTime = 0
+local LastTime = tick()
+
+local Jumping = false
+local JumpStart = 0
+
+local HeadHeight = CONFIG.HeadHeight
+
+local RobotParts = {}
+
+local Connections = {}
+
+--==================================================
 -- PROP FOLDER
---========================================================
+--==================================================
 
-local propsFolder =
-    workspace:FindFirstChild("WorkspaceCom")
-    and workspace.WorkspaceCom:FindFirstChild(
-        "001_TrafficCones"
-    )
+local function getPropsFolder()
 
-if not propsFolder then
+    local folder = workspace
 
-    warn(
-        "❌ WorkspaceCom > 001_TrafficCones nahi mila"
-    )
+    for _, name in ipairs(CONFIG.PropsFolder) do
 
+        folder = folder:FindFirstChild(name)
+
+        if not folder then
+            return nil
+        end
+
+    end
+
+    return folder
+end
+
+local PropsFolder = getPropsFolder()
+
+if not PropsFolder then
+    warn("[MANI ROBO] Props folder not found")
+    warn("Expected: workspace.WorkspaceCom.001_TrafficCones")
     return
 end
 
---========================================================
--- 10 ROBOT SLOTS
---========================================================
+--==================================================
+-- PROP ORDER
+--==================================================
 
-local SLOTS = {
+local myProps = {}
 
-    [1] = "Head",
-    [2] = "Waist",
+for _, v in ipairs(PropsFolder:GetChildren()) do
 
-    [3] = "Right Hand",
-    [4] = "Left Hand",
+    if string.find(v.Name, LocalPlayer.Name) then
+        table.insert(myProps, v)
+    end
 
-    [5] = "Right Leg 1",
-    [6] = "Right Leg 2",
-    [7] = "Right Leg 3",
+end
 
-    [8] = "Left Leg 1",
-    [9] = "Left Leg 2",
-    [10] = "Left Leg 3",
+if #myProps < CONFIG.MaxProps then
+
+    warn(
+        "[MANI ROBO] Need 10 props, found:",
+        #myProps
+    )
+
+end
+
+while #myProps > CONFIG.MaxProps do
+    table.remove(myProps)
+end
+
+--==================================================
+-- ROBOT SLOTS
+--==================================================
+
+local SLOT_NAMES = {
+    "Head",
+    "Waist",
+    "RightHand",
+    "LeftHand",
+
+    "RightLeg1",
+    "RightLeg2",
+    "RightLeg3",
+
+    "LeftLeg1",
+    "LeftLeg2",
+    "LeftLeg3",
 }
 
---========================================================
--- ROBOT BODY
---========================================================
-
--- Head ko waist se deliberately gap diya hai.
+--==================================================
+-- BASE OFFSETS
+--==================================================
 
 local BASE_OFFSETS = {
 
-    Head =
-        Vector3.new(
-            0,
-            7.0,
-            0
-        ),
+    -- HEAD
+    Head = Vector3.new(
+        0,
+        7.2,
+        0
+    ),
 
-    Waist =
-        Vector3.new(
-            0,
-            3.7,
-            0
-        ),
+    -- WAIST
+    Waist = Vector3.new(
+        0,
+        4.0,
+        0
+    ),
 
-    ["Right Hand"] =
-        Vector3.new(
-            3.0,
-            4.0,
-            0
-        ),
+    -- RIGHT HAND
+    RightHand = Vector3.new(
+        3.0,
+        4.0,
+        0
+    ),
 
-    ["Left Hand"] =
-        Vector3.new(
-            -3.0,
-            4.0,
-            0
-        ),
+    -- LEFT HAND
+    LeftHand = Vector3.new(
+        -3.0,
+        4.0,
+        0
+    ),
 
-    ["Right Leg 1"] =
-        Vector3.new(
-            1.45,
-            1.8,
-            0
-        ),
+    -- RIGHT LEG
+    RightLeg1 = Vector3.new(
+        1.45,
+        1.9,
+        0
+    ),
 
-    ["Right Leg 2"] =
-        Vector3.new(
-            1.45,
-            0.45,
-            0
-        ),
+    RightLeg2 = Vector3.new(
+        1.45,
+        0.65,
+        0
+    ),
 
-    ["Right Leg 3"] =
-        Vector3.new(
-            1.45,
-            -0.9,
-            0
-        ),
+    RightLeg3 = Vector3.new(
+        1.45,
+        -0.55,
+        0
+    ),
 
-    ["Left Leg 1"] =
-        Vector3.new(
-            -1.45,
-            1.8,
-            0
-        ),
+    -- LEFT LEG
+    LeftLeg1 = Vector3.new(
+        -1.45,
+        1.9,
+        0
+    ),
 
-    ["Left Leg 2"] =
-        Vector3.new(
-            -1.45,
-            0.45,
-            0
-        ),
+    LeftLeg2 = Vector3.new(
+        -1.45,
+        0.65,
+        0
+    ),
 
-    ["Left Leg 3"] =
-        Vector3.new(
-            -1.45,
-            -0.9,
-            0
-        ),
+    LeftLeg3 = Vector3.new(
+        -1.45,
+        -0.55,
+        0
+    ),
 }
 
---========================================================
--- SETTINGS
---========================================================
+--==================================================
+-- UI
+--==================================================
 
-local robotHeight = 1
-local propDistance = 1
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
-local walkSpeed = 28
-local jumpPower = 55
+local oldGui = PlayerGui:FindFirstChild("MANI_PUMPKIN_ROBO")
 
-local controlEnabled = false
-
-local registeredProps = {}
-
-local robotCenter = nil
-local robotRotation = nil
-local robotAnchor = nil
-
-local movementConnection = nil
-local renderConnection = nil
-
---========================================================
--- ANIMATION
---========================================================
-
-local animClock = 0
-
-local moveAmount = 0
-
-local jumpState = "Ground"
-
-local jumpVelocity = 0
-
-local verticalOffset = 0
-
-local lastGroundY = 0
-
-local ANIMATION_RATE = 1 / 30
-local animationAccumulator = 0
-
---========================================================
--- CAMERA
---========================================================
-
-local cameraYaw = 0
-local cameraPitch = 12
-
-local cameraDistance = 18
-
-local targetCameraYaw = 0
-local targetCameraPitch = 12
-local targetCameraDistance = 18
-
-local cameraDragging = false
-local cameraDragStart = nil
-local cameraYawStart = 0
-local cameraPitchStart = 0
-
-local oldCameraType = nil
-local oldCameraSubject = nil
-
---========================================================
--- GUI
---========================================================
-
-local gui =
-    Instance.new("ScreenGui")
-
-gui.Name =
-    "MANI_PUMPKIN_ROBO_V3"
-
-gui.ResetOnSpawn = false
-gui.IgnoreGuiInset = true
-
-gui.Parent =
-    player:WaitForChild("PlayerGui")
-
---========================================================
--- MAIN
---========================================================
-
-local main =
-    Instance.new("Frame")
-
-main.Size =
-    UDim2.fromOffset(
-        225,
-        280
-    )
-
-main.Position =
-    UDim2.new(
-        0.5,
-        -112,
-        0.5,
-        -140
-    )
-
-main.BackgroundColor3 =
-    Color3.fromRGB(
-        16,
-        16,
-        20
-    )
-
-main.BorderSizePixel = 0
-
-main.Parent = gui
-
-local mainCorner =
-    Instance.new("UICorner")
-
-mainCorner.CornerRadius =
-    UDim.new(
-        0,
-        12
-    )
-
-mainCorner.Parent = main
-
---========================================================
--- TITLE
---========================================================
-
-local titleBar =
-    Instance.new("Frame")
-
-titleBar.Size =
-    UDim2.new(
-        1,
-        0,
-        0,
-        38
-    )
-
-titleBar.BackgroundColor3 =
-    Color3.fromRGB(
-        25,
-        25,
-        30
-    )
-
-titleBar.BorderSizePixel = 0
-
-titleBar.Parent = main
-
-local title =
-    Instance.new("TextLabel")
-
-title.BackgroundTransparency = 1
-
-title.Position =
-    UDim2.fromOffset(
-        10,
-        4
-    )
-
-title.Size =
-    UDim2.new(
-        1,
-        -70,
-        0,
-        28
-    )
-
-title.Text =
-    "🎃 MANI PUMPKIN ROBO V.3"
-
-title.TextColor3 =
-    Color3.fromRGB(
-        255,
-        255,
-        255
-    )
-
-title.TextSize = 12
-
-title.Font =
-    Enum.Font.GothamBold
-
-title.TextXAlignment =
-    Enum.TextXAlignment.Left
-
-title.Parent = titleBar
-
---========================================================
--- MINIMIZE
---========================================================
-
-local minimize =
-    Instance.new("TextButton")
-
-minimize.Size =
-    UDim2.fromOffset(
-        28,
-        26
-    )
-
-minimize.Position =
-    UDim2.new(
-        1,
-        -62,
-        0,
-        6
-    )
-
-minimize.Text = "—"
-
-minimize.TextSize = 18
-
-minimize.TextColor3 =
-    Color3.fromRGB(
-        255,
-        255,
-        255
-    )
-
-minimize.BackgroundColor3 =
-    Color3.fromRGB(
-        42,
-        42,
-        48
-    )
-
-minimize.BorderSizePixel = 0
-
-minimize.Parent = titleBar
-
-local minCorner =
-    Instance.new("UICorner")
-
-minCorner.CornerRadius =
-    UDim.new(
-        0,
-        7
-    )
-
-minCorner.Parent = minimize
-
---========================================================
--- CLOSE
---========================================================
-
-local close =
-    Instance.new("TextButton")
-
-close.Size =
-    UDim2.fromOffset(
-        28,
-        26
-    )
-
-close.Position =
-    UDim2.new(
-        1,
-        -32,
-        0,
-        6
-    )
-
-close.Text = "×"
-
-close.TextSize = 18
-
-close.TextColor3 =
-    Color3.fromRGB(
-        255,
-        100,
-        100
-    )
-
-close.BackgroundColor3 =
-    Color3.fromRGB(
-        42,
-        42,
-        48
-    )
-
-close.BorderSizePixel = 0
-
-close.Parent = titleBar
-
-local closeCorner =
-    Instance.new("UICorner")
-
-closeCorner.CornerRadius =
-    UDim.new(
-        0,
-        7
-    )
-
-closeCorner.Parent = close
-
---========================================================
--- DRAG GUI
---========================================================
-
-local guiDragging = false
-local guiDragStart
-local guiStartPosition
-
-titleBar.InputBegan:Connect(
-    function(input)
-
-        if
-            input.UserInputType ==
-            Enum.UserInputType.MouseButton1
-            or
-            input.UserInputType ==
-            Enum.UserInputType.Touch
-        then
-
-            guiDragging = true
-
-            guiDragStart =
-                input.Position
-
-            guiStartPosition =
-                main.Position
-
-        end
-
-    end
-)
-
-UserInputService.InputChanged:Connect(
-    function(input)
-
-        if not guiDragging then
-            return
-        end
-
-        if
-            input.UserInputType ==
-            Enum.UserInputType.MouseMovement
-            or
-            input.UserInputType ==
-            Enum.UserInputType.Touch
-        then
-
-            local delta =
-                input.Position -
-                guiDragStart
-
-            main.Position =
-                UDim2.new(
-                    guiStartPosition.X.Scale,
-                    guiStartPosition.X.Offset + delta.X,
-
-                    guiStartPosition.Y.Scale,
-                    guiStartPosition.Y.Offset + delta.Y
-                )
-
-        end
-
-    end
-)
-
-UserInputService.InputEnded:Connect(
-    function(input)
-
-        if
-            input.UserInputType ==
-            Enum.UserInputType.MouseButton1
-            or
-            input.UserInputType ==
-            Enum.UserInputType.Touch
-        then
-
-            guiDragging = false
-
-        end
-
-    end
-)
-
---========================================================
--- SCROLLABLE CONTENT
---========================================================
-
-local scroll =
-    Instance.new("ScrollingFrame")
-
-scroll.Position =
-    UDim2.fromOffset(
-        7,
-        44
-    )
-
-scroll.Size =
-    UDim2.new(
-        1,
-        -14,
-        1,
-        -51
-    )
-
-scroll.BackgroundTransparency = 1
-
-scroll.BorderSizePixel = 0
-
-scroll.ScrollBarThickness = 3
-
-scroll.CanvasSize =
-    UDim2.new(
-        0,
-        0,
-        0,
-        590
-    )
-
-scroll.Parent = main
-
---========================================================
--- CONTENT
---========================================================
-
-local content =
-    Instance.new("Frame")
-
-content.BackgroundTransparency = 1
-
-content.Size =
-    UDim2.new(
-        1,
-        -6,
-        0,
-        580
-    )
-
-content.Parent = scroll
-
---========================================================
--- STATUS
---========================================================
-
-local status =
-    Instance.new("TextLabel")
-
-status.BackgroundTransparency = 1
-
-status.Position =
-    UDim2.fromOffset(
-        4,
-        0
-    )
-
-status.Size =
-    UDim2.new(
-        1,
-        -8,
-        0,
-        25
-    )
-
-status.Text =
-    "PROPS 0 / 10"
-
-status.TextColor3 =
-    Color3.fromRGB(
-        180,
-        180,
-        190
-    )
-
-status.TextSize = 11
-
-status.Font =
-    Enum.Font.GothamBold
-
-status.TextXAlignment =
-    Enum.TextXAlignment.Left
-
-status.Parent = content
-
---========================================================
--- SLOTS
---========================================================
-
-local slotFrame =
-    Instance.new("Frame")
-
-slotFrame.Position =
-    UDim2.fromOffset(
-        4,
-        28
-    )
-
-slotFrame.Size =
-    UDim2.new(
-        1,
-        -8,
-        0,
-        140
-    )
-
-slotFrame.BackgroundColor3 =
-    Color3.fromRGB(
-        10,
-        10,
-        13
-    )
-
-slotFrame.BorderSizePixel = 0
-
-slotFrame.Parent = content
-
-local slotCorner =
-    Instance.new("UICorner")
-
-slotCorner.CornerRadius =
-    UDim.new(
-        0,
-        8
-    )
-
-slotCorner.Parent = slotFrame
-
-local slotList =
-    Instance.new("UIListLayout")
-
-slotList.Padding =
-    UDim.new(
-        0,
-        1
-    )
-
-slotList.Parent = slotFrame
-
-local slotLabels = {}
-
-for i = 1, 10 do
-
-    local label =
-        Instance.new("TextLabel")
-
-    label.Size =
-        UDim2.new(
-            1,
-            -8,
-            0,
-            13
-        )
-
-    label.BackgroundTransparency = 1
-
-    label.Text =
-        i
-        .. ". "
-        .. SLOTS[i]
-        .. " [EMPTY]"
-
-    label.TextColor3 =
-        Color3.fromRGB(
-            145,
-            145,
-            155
-        )
-
-    label.TextSize = 9
-
-    label.Font =
-        Enum.Font.GothamMedium
-
-    label.TextXAlignment =
-        Enum.TextXAlignment.Left
-
-    label.Parent = slotFrame
-
-    slotLabels[i] = label
-
+if oldGui then
+    oldGui:Destroy()
 end
 
---========================================================
--- BUTTON CREATOR
---========================================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "MANI_PUMPKIN_ROBO"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = PlayerGui
 
-local function button(
-    text,
-    y,
-    width
-)
+--==================================================
+-- MAIN FRAME
+--==================================================
 
-    local b =
-        Instance.new("TextButton")
+local Main = Instance.new("Frame")
+Main.Name = "Main"
+Main.Size = UDim2.fromOffset(245, 315)
+Main.Position = UDim2.new(0, 25, 0.5, -157)
+Main.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
+Main.BorderSizePixel = 0
+Main.ClipsDescendants = true
+Main.Parent = ScreenGui
 
-    b.Position =
-        UDim2.fromOffset(
-            4,
-            y
-        )
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 12)
+MainCorner.Parent = Main
 
-    b.Size =
-        UDim2.new(
-            1,
-            -8,
-            0,
-            28
-        )
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = Color3.fromRGB(60, 60, 72)
+MainStroke.Thickness = 1
+MainStroke.Transparency = 0.2
+MainStroke.Parent = Main
 
-    b.BackgroundColor3 =
-        Color3.fromRGB(
-            35,
-            35,
-            42
-        )
+--==================================================
+-- TOP BAR
+--==================================================
 
-    b.BorderSizePixel = 0
+local TopBar = Instance.new("Frame")
+TopBar.Size = UDim2.new(1, 0, 0, 42)
+TopBar.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+TopBar.BorderSizePixel = 0
+TopBar.Parent = Main
 
-    b.Text =
-        text
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -85, 1, 0)
+Title.Position = UDim2.fromOffset(12, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "🎃 MANI PUMPKIN ROBO"
+Title.TextColor3 = Color3.fromRGB(245, 245, 250)
+Title.TextSize = 13
+Title.Font = Enum.Font.GothamBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = TopBar
 
-    b.TextColor3 =
-        Color3.fromRGB(
-            255,
-            255,
-            255
-        )
+local Version = Instance.new("TextLabel")
+Version.Size = UDim2.fromOffset(45, 18)
+Version.Position = UDim2.new(1, -82, 0, 12)
+Version.BackgroundTransparency = 1
+Version.Text = "V.4"
+Version.TextColor3 = Color3.fromRGB(150, 150, 165)
+Version.TextSize = 10
+Version.Font = Enum.Font.GothamBold
+Version.Parent = TopBar
 
-    b.TextSize = 10
+local Minimize = Instance.new("TextButton")
+Minimize.Size = UDim2.fromOffset(30, 30)
+Minimize.Position = UDim2.new(1, -36, 0, 6)
+Minimize.BackgroundColor3 = Color3.fromRGB(35, 35, 43)
+Minimize.Text = "—"
+Minimize.TextColor3 = Color3.fromRGB(240, 240, 245)
+Minimize.TextSize = 15
+Minimize.Font = Enum.Font.GothamBold
+Minimize.AutoButtonColor = false
+Minimize.Parent = TopBar
 
-    b.Font =
-        Enum.Font.GothamBold
+local MinCorner = Instance.new("UICorner")
+MinCorner.CornerRadius = UDim.new(0, 8)
+MinCorner.Parent = Minimize
 
-    b.Parent = content
+--==================================================
+-- SCROLL
+--==================================================
 
-    local c =
-        Instance.new("UICorner")
+local Scroll = Instance.new("ScrollingFrame")
+Scroll.Name = "Scroll"
+Scroll.Size = UDim2.new(1, -10, 1, -52)
+Scroll.Position = UDim2.fromOffset(5, 47)
+Scroll.BackgroundTransparency = 1
+Scroll.BorderSizePixel = 0
+Scroll.ScrollBarThickness = 3
+Scroll.ScrollBarImageTransparency = 0.25
+Scroll.CanvasSize = UDim2.fromOffset(0, 0)
+Scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+Scroll.ScrollingDirection = Enum.ScrollingDirection.Y
+Scroll.Parent = Main
 
-    c.CornerRadius =
-        UDim.new(
-            0,
-            7
-        )
+local Padding = Instance.new("UIPadding")
+Padding.PaddingLeft = UDim.new(0, 7)
+Padding.PaddingRight = UDim.new(0, 7)
+Padding.PaddingTop = UDim.new(0, 4)
+Padding.PaddingBottom = UDim.new(0, 8)
+Padding.Parent = Scroll
 
-    c.Parent = b
+local Layout = Instance.new("UIListLayout")
+Layout.Padding = UDim.new(0, 7)
+Layout.SortOrder = Enum.SortOrder.LayoutOrder
+Layout.Parent = Scroll
 
-    return b
-end
+--==================================================
+-- UI HELPERS
+--==================================================
 
---========================================================
--- LOAD
---========================================================
+local function createSection(text)
 
-local loadButton =
-    button(
-        "LOAD 10 PROPS",
-        174
-    )
+    local label = Instance.new("TextLabel")
 
---========================================================
--- ASSEMBLE
---========================================================
-
-local assembleButton =
-    button(
-        "🤖 ASSEMBLE ROBOT",
-        207
-    )
-
---========================================================
--- VALUE ROW
---========================================================
-
-local function makeValueRow(
-    labelText,
-    y,
-    initial
-)
-
-    local label =
-        Instance.new("TextLabel")
-
-    label.Position =
-        UDim2.fromOffset(
-            4,
-            y
-        )
-
-    label.Size =
-        UDim2.new(
-            1,
-            -90,
-            0,
-            28
-        )
-
+    label.Size = UDim2.new(1, 0, 0, 18)
     label.BackgroundTransparency = 1
 
-    label.Text =
-        labelText
-        .. ": "
-        .. tostring(initial)
-
-    label.TextColor3 =
-        Color3.fromRGB(
-            215,
-            215,
-            220
-        )
-
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(130, 130, 145)
     label.TextSize = 10
+    label.Font = Enum.Font.GothamBold
 
-    label.Font =
-        Enum.Font.GothamBold
+    label.TextXAlignment = Enum.TextXAlignment.Left
 
-    label.TextXAlignment =
-        Enum.TextXAlignment.Left
+    label.Parent = Scroll
 
-    label.Parent = content
-
-    local minus =
-        button(
-            "−",
-            y,
-            1
-        )
-
-    minus.Position =
-        UDim2.new(
-            1,
-            -66,
-            0,
-            y
-        )
-
-    minus.Size =
-        UDim2.fromOffset(
-            28,
-            28
-        )
-
-    local plus =
-        button(
-            "+",
-            y,
-            1
-        )
-
-    plus.Position =
-        UDim2.new(
-            1,
-            -34,
-            0,
-            y
-        )
-
-    plus.Size =
-        UDim2.fromOffset(
-            28,
-            28
-        )
-
-    return label, minus, plus
+    return label
 end
 
---========================================================
--- HEIGHT
---========================================================
+local function createButton(text)
 
-local heightLabel,
-heightMinus,
-heightPlus =
-    makeValueRow(
-        "HEIGHT",
-        242,
-        "1.00"
-    )
+    local button = Instance.new("TextButton")
 
---========================================================
--- DISTANCE
---========================================================
+    button.Size = UDim2.new(1, 0, 0, 35)
 
-local distanceLabel,
-distanceMinus,
-distancePlus =
-    makeValueRow(
-        "DISTANCE",
-        275,
-        "1.00"
-    )
+    button.BackgroundColor3 = Color3.fromRGB(28, 28, 35)
 
---========================================================
--- SPEED
---========================================================
+    button.BorderSizePixel = 0
 
-local speedLabel,
-speedMinus,
-speedPlus =
-    makeValueRow(
-        "WALK SPEED",
-        308,
-        walkSpeed
-    )
+    button.Text = text
+    button.TextColor3 = Color3.fromRGB(235, 235, 240)
 
---========================================================
--- JUMP
---========================================================
+    button.TextSize = 11
+    button.Font = Enum.Font.GothamMedium
 
-local jumpLabel,
-jumpMinus,
-jumpPlus =
-    makeValueRow(
-        "JUMP POWER",
-        341,
-        jumpPower
-    )
+    button.AutoButtonColor = false
 
---========================================================
+    button.Parent = Scroll
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = button
+
+    button.MouseEnter:Connect(function()
+        button.BackgroundColor3 = Color3.fromRGB(38, 38, 47)
+    end)
+
+    button.MouseLeave:Connect(function()
+        button.BackgroundColor3 = Color3.fromRGB(28, 28, 35)
+    end)
+
+    return button
+end
+
+local function createValueButton(text)
+    return createButton(text)
+end
+
+--==================================================
+-- STATUS
+--==================================================
+
+createSection("ROBOT")
+
+local Status = createButton("●  ROBOT NOT LOADED")
+
+Status.TextColor3 = Color3.fromRGB(180, 180, 190)
+
+local LoadButton = createButton("LOAD 10 PROPS")
+
+--==================================================
 -- CONTROL
---========================================================
+--==================================================
 
-local controlButton =
-    button(
-        "CONTROL: OFF",
-        378
+local ControlButton = createButton("CONTROL : OFF")
+
+local function updateControlText()
+
+    if RobotEnabled then
+        ControlButton.Text = "CONTROL : ON"
+        ControlButton.TextColor3 = Color3.fromRGB(120, 255, 150)
+    else
+        ControlButton.Text = "CONTROL : OFF"
+        ControlButton.TextColor3 = Color3.fromRGB(235, 235, 240)
+    end
+
+end
+
+--==================================================
+-- HEAD
+--==================================================
+
+createSection("HEAD")
+
+local HeadButton = createValueButton(
+    "HEAD HEIGHT : " ..
+    string.format("%.1f", HeadHeight)
+)
+
+local function updateHeadButton()
+
+    HeadButton.Text =
+        "HEAD HEIGHT : " ..
+        string.format("%.1f", HeadHeight)
+
+end
+
+--==================================================
+-- ROBOT HEIGHT
+--==================================================
+
+createSection("ROBOT SIZE")
+
+local HeightButton = createValueButton(
+    "ROBOT HEIGHT : " ..
+    string.format("%.1f", CONFIG.RobotHeight)
+)
+
+--==================================================
+-- PROP SPACING
+--==================================================
+
+local SpacingButton = createValueButton(
+    "PROP SPACING : " ..
+    string.format("%.1f", CONFIG.PropSpacing)
+)
+
+--==================================================
+-- MOVEMENT
+--==================================================
+
+createSection("MOVEMENT")
+
+local SpeedButton = createValueButton(
+    "WALK SPEED : " ..
+    CONFIG.WalkSpeed
+)
+
+local JumpButton = createValueButton(
+    "JUMP POWER : " ..
+    CONFIG.JumpPower
+)
+
+--==================================================
+-- CAMERA
+--==================================================
+
+createSection("CAMERA")
+
+local CameraButton = createValueButton(
+    "CAMERA DISTANCE : " ..
+    math.floor(CameraDistance)
+)
+
+--==================================================
+-- PROP ASSIGNMENT LABEL
+--==================================================
+
+createSection("10 PROP SLOT MAP")
+
+local SlotInfo = createButton(
+    "1 HEAD  •  2 WAIST"
+)
+
+local SlotInfo2 = createButton(
+    "3 R-HAND  •  4 L-HAND"
+)
+
+local SlotInfo3 = createButton(
+    "5-7 R-LEG  •  8-10 L-LEG"
+)
+
+--==================================================
+-- RESIZE HANDLE
+--==================================================
+
+local ResizeHandle = Instance.new("TextButton")
+ResizeHandle.Name = "ResizeHandle"
+ResizeHandle.Size = UDim2.fromOffset(20, 20)
+ResizeHandle.Position = UDim2.new(1, -20, 1, -20)
+ResizeHandle.BackgroundTransparency = 1
+ResizeHandle.Text = "◢"
+ResizeHandle.TextColor3 = Color3.fromRGB(100, 100, 115)
+ResizeHandle.TextSize = 13
+ResizeHandle.Parent = Main
+
+--==================================================
+-- DRAG SYSTEM
+--==================================================
+
+local dragging = false
+local dragStart
+local startPos
+
+TopBar.InputBegan:Connect(function(input)
+
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+
+        dragging = true
+
+        dragStart = input.Position
+        startPos = Main.Position
+
+        input.Changed:Connect(function()
+
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+
+        end)
+
+    end
+
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+
+    if not dragging then
+        return
+    end
+
+    if input.UserInputType ~= Enum.UserInputType.MouseMovement
+        and input.UserInputType ~= Enum.UserInputType.Touch then
+        return
+    end
+
+    local delta = input.Position - dragStart
+
+    Main.Position = UDim2.new(
+        startPos.X.Scale,
+        startPos.X.Offset + delta.X,
+
+        startPos.Y.Scale,
+        startPos.Y.Offset + delta.Y
     )
 
---========================================================
--- CAMERA INFO
---========================================================
+end)
 
-local cameraInfo =
-    Instance.new("TextLabel")
-
-cameraInfo.Position =
-    UDim2.fromOffset(
-        4,
-        414
-    )
-
-cameraInfo.Size =
-    UDim2.new(
-        1,
-        -8,
-        0,
-        48
-    )
-
-cameraInfo.BackgroundColor3 =
-    Color3.fromRGB(
-        24,
-        24,
-        29
-    )
-
-cameraInfo.BorderSizePixel = 0
-
-cameraInfo.Text =
-    "CAMERA\nPC: Mouse • Wheel Zoom\nMobile: Drag • Pinch Zoom"
-
-cameraInfo.TextColor3 =
-    Color3.fromRGB(
-        160,
-        160,
-        170
-    )
-
-cameraInfo.TextSize = 9
-
-cameraInfo.Font =
-    Enum.Font.GothamMedium
-
-cameraInfo.TextXAlignment =
-    Enum.TextXAlignment.Left
-
-cameraInfo.Parent = content
-
-local infoCorner =
-    Instance.new("UICorner")
-
-infoCorner.CornerRadius =
-    UDim.new(
-        0,
-        7
-    )
-
-infoCorner.Parent = cameraInfo
-
---========================================================
--- GUI RESIZE HANDLE
---========================================================
-
-local resize =
-    Instance.new("TextButton")
-
-resize.Size =
-    UDim2.fromOffset(
-        18,
-        18
-    )
-
-resize.Position =
-    UDim2.new(
-        1,
-        -18,
-        1,
-        -18
-    )
-
-resize.BackgroundTransparency = 1
-
-resize.Text = "◢"
-
-resize.TextColor3 =
-    Color3.fromRGB(
-        100,
-        100,
-        110
-    )
-
-resize.TextSize = 12
-
-resize.Parent = main
+--==================================================
+-- RESIZE
+--==================================================
 
 local resizing = false
 local resizeStart
-local originalSize
+local resizeSize
 
-resize.InputBegan:Connect(
-    function(input)
+ResizeHandle.InputBegan:Connect(function(input)
 
-        if
-            input.UserInputType ==
-            Enum.UserInputType.MouseButton1
-            or
-            input.UserInputType ==
-            Enum.UserInputType.Touch
-        then
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
 
-            resizing = true
+        resizing = true
 
-            resizeStart =
-                input.Position
+        resizeStart = input.Position
+        resizeSize = Main.AbsoluteSize
 
-            originalSize =
-                main.AbsoluteSize
+        input.Changed:Connect(function()
 
-        end
+            if input.UserInputState == Enum.UserInputState.End then
+                resizing = false
+            end
+
+        end)
 
     end
-)
 
-UserInputService.InputChanged:Connect(
-    function(input)
+end)
 
-        if not resizing then
+UserInputService.InputChanged:Connect(function(input)
+
+    if not resizing then
+        return
+    end
+
+    if input.UserInputType ~= Enum.UserInputType.MouseMovement
+        and input.UserInputType ~= Enum.UserInputType.Touch then
+        return
+    end
+
+    local delta = input.Position - resizeStart
+
+    local newWidth = math.clamp(
+        resizeSize.X + delta.X,
+        210,
+        360
+    )
+
+    local newHeight = math.clamp(
+        resizeSize.Y + delta.Y,
+        240,
+        600
+    )
+
+    Main.Size = UDim2.fromOffset(
+        newWidth,
+        newHeight
+    )
+
+end)
+
+--==================================================
+-- MINIMIZE
+--==================================================
+
+local minimized = false
+
+Minimize.MouseButton1Click:Connect(function()
+
+    minimized = not minimized
+
+    Scroll.Visible = not minimized
+    ResizeHandle.Visible = not minimized
+
+    if minimized then
+
+        Main.Size = UDim2.fromOffset(
+            245,
+            42
+        )
+
+        Minimize.Text = "+"
+
+    else
+
+        Main.Size = UDim2.fromOffset(
+            245,
+            315
+        )
+
+        Minimize.Text = "—"
+
+    end
+
+end)
+
+--==================================================
+-- PROP SERVER MOVEMENT
+--==================================================
+
+local function setPropCFrame(prop, cf)
+
+    if not prop then
+        return false
+    end
+
+    local remote = prop:FindFirstChild("SetCurrentCFrame")
+
+    if remote and remote:IsA("RemoteFunction") then
+
+        local success = pcall(function()
+            remote:InvokeServer(cf)
+        end)
+
+        return success
+    end
+
+    -- fallback only if actual prop itself supports CFrame
+    local success = pcall(function()
+
+        if prop:IsA("BasePart") then
+            prop.CFrame = cf
             return
         end
 
-        if
-            input.UserInputType ==
-            Enum.UserInputType.MouseMovement
-            or
-            input.UserInputType ==
-            Enum.UserInputType.Touch
-        then
+        local part = prop:FindFirstChildWhichIsA(
+            "BasePart",
+            true
+        )
 
-            local delta =
-                input.Position -
-                resizeStart
-
-            local newWidth =
-                math.clamp(
-                    originalSize.X + delta.X,
-                    190,
-                    320
-                )
-
-            local newHeight =
-                math.clamp(
-                    originalSize.Y + delta.Y,
-                    180,
-                    500
-                )
-
-            main.Size =
-                UDim2.fromOffset(
-                    newWidth,
-                    newHeight
-                )
-
+        if part then
+            part.CFrame = cf
         end
 
-    end
-)
+    end)
 
-UserInputService.InputEnded:Connect(
-    function(input)
-
-        if
-            input.UserInputType ==
-            Enum.UserInputType.MouseButton1
-            or
-            input.UserInputType ==
-            Enum.UserInputType.Touch
-        then
-
-            resizing = false
-
-        end
-
-    end
-)
-
---========================================================
--- SLOT UI
---========================================================
-
-local function updateSlots()
-
-    local count = 0
-
-    for i = 1, 10 do
-
-        if registeredProps[i] then
-
-            count += 1
-
-            slotLabels[i].Text =
-                i
-                .. ". "
-                .. SLOTS[i]
-                .. " [LOCKED]"
-
-            slotLabels[i].TextColor3 =
-                Color3.fromRGB(
-                    90,
-                    255,
-                    140
-                )
-
-        else
-
-            slotLabels[i].Text =
-                i
-                .. ". "
-                .. SLOTS[i]
-                .. " [EMPTY]"
-
-            slotLabels[i].TextColor3 =
-                Color3.fromRGB(
-                    145,
-                    145,
-                    155
-                )
-
-        end
-
-    end
-
-    status.Text =
-        "PROPS "
-        .. count
-        .. " / 10"
-
+    return success
 end
 
---========================================================
--- LOAD PROPS
---========================================================
+--==================================================
+-- OFFSET SYSTEM
+--==================================================
 
-local function loadProps()
+local function getOffset(name)
 
-    registeredProps = {}
+    local base = BASE_OFFSETS[name]
 
-    local found = {}
+    if not base then
+        return Vector3.zero
+    end
 
-    for _, v in pairs(
-        propsFolder:GetChildren()
-    ) do
+    local scale = CONFIG.RobotHeight
 
-        if string.find(
-            v.Name,
-            player.Name
-        ) then
+    local x = base.X * scale
+    local y = base.Y * scale
+    local z = base.Z * scale
 
-            table.insert(
-                found,
-                v
+    if name == "Head" then
+
+        y = HeadHeight
+
+    end
+
+    -- spacing affects horizontal body width
+    if name == "RightHand"
+        or string.find(name, "RightLeg") then
+
+        x = x * CONFIG.PropSpacing
+
+    elseif name == "LeftHand"
+        or string.find(name, "LeftLeg") then
+
+        x = x * CONFIG.PropSpacing
+
+    end
+
+    return Vector3.new(
+        x,
+        y,
+        z
+    )
+end
+
+--==================================================
+-- ANIMATION OFFSETS
+--==================================================
+
+local function getAnimationOffset(name, walking)
+
+    local offset = Vector3.zero
+
+    ------------------------------------------------
+    -- IDLE
+    ------------------------------------------------
+
+    if not walking then
+
+        local idle = math.sin(WalkTime * 2.2)
+
+        if name == "Head" then
+
+            offset = Vector3.new(
+                0,
+                idle * 0.04,
+                0
+            )
+
+        elseif name == "RightHand" then
+
+            offset = Vector3.new(
+                0,
+                idle * 0.04,
+                idle * 0.03
+            )
+
+        elseif name == "LeftHand" then
+
+            offset = Vector3.new(
+                0,
+                idle * 0.04,
+                -idle * 0.03
             )
 
         end
 
+        return offset
     end
 
-    -- IMPORTANT:
-    -- First 10 props only.
-    for i = 1,
-        math.min(
-            #found,
-            10
-        )
-    do
+    ------------------------------------------------
+    -- WALK
+    ------------------------------------------------
 
-        registeredProps[i] =
-            found[i]
+    local cycle = WalkTime * 8
+
+    local rightPhase = math.sin(cycle)
+    local leftPhase = math.sin(cycle + math.pi)
+
+    ------------------------------------------------
+    -- RIGHT HAND
+    ------------------------------------------------
+
+    if name == "RightHand" then
+
+        offset = Vector3.new(
+            0,
+            math.abs(rightPhase) * 0.08,
+            rightPhase * 0.55
+        )
+
+    ------------------------------------------------
+    -- LEFT HAND
+    ------------------------------------------------
+
+    elseif name == "LeftHand" then
+
+        offset = Vector3.new(
+            0,
+            math.abs(leftPhase) * 0.08,
+            leftPhase * 0.55
+        )
+
+    ------------------------------------------------
+    -- RIGHT LEG
+    ------------------------------------------------
+
+    elseif name == "RightLeg1" then
+
+        offset = Vector3.new(
+            0,
+            math.abs(rightPhase) * 0.12,
+            rightPhase * 0.45
+        )
+
+    elseif name == "RightLeg2" then
+
+        offset = Vector3.new(
+            0,
+            math.abs(rightPhase) * 0.08,
+            rightPhase * 0.30
+        )
+
+    elseif name == "RightLeg3" then
+
+        offset = Vector3.new(
+            0,
+            -math.abs(rightPhase) * 0.05,
+            rightPhase * 0.18
+        )
+
+    ------------------------------------------------
+    -- LEFT LEG
+    ------------------------------------------------
+
+    elseif name == "LeftLeg1" then
+
+        offset = Vector3.new(
+            0,
+            math.abs(leftPhase) * 0.12,
+            leftPhase * 0.45
+        )
+
+    elseif name == "LeftLeg2" then
+
+        offset = Vector3.new(
+            0,
+            math.abs(leftPhase) * 0.08,
+            leftPhase * 0.30
+        )
+
+    elseif name == "LeftLeg3" then
+
+        offset = Vector3.new(
+            0,
+            -math.abs(leftPhase) * 0.05,
+            leftPhase * 0.18
+        )
 
     end
 
-    updateSlots()
-
-    status.Text =
-        "LOADED "
-        .. math.min(
-            #found,
-            10
-        )
-        .. " / 10"
-
+    return offset
 end
 
---========================================================
--- ROBOT POSITION
---========================================================
+--==================================================
+-- JUMP ANIMATION
+--==================================================
 
-local function bodyCFrame(
-    offset,
-    rotationOffset,
-    extraOffset
-)
+local function getJumpOffset(name)
 
-    extraOffset =
-        extraOffset or Vector3.zero
+    if not Jumping then
+        return Vector3.zero
+    end
 
-    rotationOffset =
-        rotationOffset
-        or CFrame.identity
+    local elapsed = tick() - JumpStart
 
-    local right =
-        robotRotation.RightVector
+    local jumpWave = math.sin(
+        math.clamp(elapsed * 5, 0, math.pi)
+    )
 
-    local forward =
-        robotRotation.LookVector
+    if name == "Head" then
 
-    local pos =
-        robotCenter
-
-        + right
-            * offset.X
-            * propDistance
-
-        + Vector3.new(
+        return Vector3.new(
             0,
-            offset.Y
-                * robotHeight,
+            jumpWave * 0.15,
             0
         )
 
-        + forward
-            * offset.Z
-            * propDistance
+    elseif name == "RightHand"
+        or name == "LeftHand" then
 
-        + extraOffset
-
-    return
-        CFrame.new(
-            pos,
-            pos + forward
+        return Vector3.new(
+            0,
+            jumpWave * 0.35,
+            0
         )
-        * rotationOffset
-end
 
---========================================================
--- SERVER PROP MOVE
---========================================================
+    elseif string.find(name, "Leg") then
 
-local function moveProp(
-    prop,
-    cf
-)
-
-    if not prop then
-        return
+        return Vector3.new(
+            0,
+            jumpWave * 0.15,
+            0
+        )
     end
 
-    local remote =
-        prop:FindFirstChild(
-            "SetCurrentCFrame"
-        )
-
-    if remote then
-
-        pcall(
-            function()
-
-                remote:InvokeServer(
-                    cf
-                )
-
-            end
-        )
-
-    end
+    return Vector3.zero
 end
 
---========================================================
--- BUILD ROBOT
---========================================================
+--==================================================
+-- ROBOT CFRAME
+--==================================================
+
+local function getRobotCFrame(position)
+
+    local forward = RobotForward
+
+    forward = Vector3.new(
+        forward.X,
+        0,
+        forward.Z
+    )
+
+    if forward.Magnitude < 0.001 then
+        forward = Vector3.new(
+            0,
+            0,
+            -1
+        )
+    end
+
+    forward = forward.Unit
+
+    return CFrame.lookAt(
+        position,
+        position + forward,
+        Vector3.new(0, 1, 0)
+    )
+end
+
+--==================================================
+-- ASSEMBLE ROBOT
+--==================================================
 
 local function assembleRobot()
 
-    if not registeredProps[1] then
+    RobotParts = {}
 
-        loadProps()
+    for i = 1, math.min(#myProps, 10) do
+
+        local prop = myProps[i]
+
+        RobotParts[SLOT_NAMES[i]] = prop
 
     end
 
-    if not registeredProps[1] then
+    RobotLoaded = true
 
-        status.Text =
-            "NO PROPS"
+    Status.Text =
+        "●  ROBOT READY  " ..
+        tostring(#RobotParts) ..
+        "/10"
+
+    Status.TextColor3 =
+        Color3.fromRGB(120, 255, 150)
+
+end
+
+--==================================================
+-- MOVE ALL ROBOT PROPS
+--==================================================
+
+local function updateRobot()
+
+    if not RobotLoaded then
+        return
+    end
+
+    local walking =
+        RobotEnabled
+        and Humanoid.MoveDirection.Magnitude > 0.05
+
+    if walking then
+        WalkTime += 0.04
+    else
+        WalkTime += 0.015
+    end
+
+    local baseCF = getRobotCFrame(
+        RobotPosition
+    )
+
+    for _, name in ipairs(SLOT_NAMES) do
+
+        local prop = RobotParts[name]
+
+        if prop then
+
+            local offset =
+                getOffset(name)
+
+            local animation =
+                getAnimationOffset(
+                    name,
+                    walking
+                )
+
+            local jumpOffset =
+                getJumpOffset(name)
+
+            local finalOffset =
+                offset
+                + animation
+                + jumpOffset
+
+            local worldPosition =
+                RobotPosition
+                + baseCF.RightVector * finalOffset.X
+                + Vector3.new(
+                    0,
+                    finalOffset.Y,
+                    0
+                )
+                + baseCF.LookVector * finalOffset.Z
+
+            local cf = CFrame.lookAt(
+                worldPosition,
+                worldPosition + RobotForward,
+                Vector3.new(0, 1, 0)
+            )
+
+            setPropCFrame(
+                prop,
+                cf
+            )
+
+        end
+
+    end
+end
+
+--==================================================
+-- LOAD BUTTON
+--==================================================
+
+LoadButton.MouseButton1Click:Connect(function()
+
+    if RobotLoaded then
+
+        assembleRobot()
 
         return
-
     end
 
-    robotCenter =
-        hrp.Position
-        + hrp.CFrame.LookVector
-            * 8
+    assembleRobot()
 
-    robotRotation =
-        CFrame.lookAt(
-            robotCenter,
-            robotCenter
-                + hrp.CFrame.LookVector
+end)
+
+--==================================================
+-- CONTROL BUTTON
+--==================================================
+
+ControlButton.MouseButton1Click:Connect(function()
+
+    if not RobotLoaded then
+
+        Status.Text =
+            "●  LOAD ROBOT FIRST"
+
+        Status.TextColor3 =
+            Color3.fromRGB(255, 170, 80)
+
+        return
+    end
+
+    RobotEnabled = not RobotEnabled
+
+    updateControlText()
+
+    if RobotEnabled then
+
+        RobotPosition = HRP.Position
+
+        -- Keep player's character visible.
+        -- Only anchor its root so default
+        -- character stays where it is.
+        HRP.Anchored = true
+
+        Humanoid.AutoRotate = false
+
+        -- Camera
+        workspace.CurrentCamera.CameraType =
+            Enum.CameraType.Scriptable
+
+        local look =
+            HRP.CFrame.LookVector
+
+        RobotForward = Vector3.new(
+            look.X,
+            0,
+            look.Z
+        ).Unit
+
+    else
+
+        HRP.Anchored = false
+
+        Humanoid.AutoRotate = true
+
+        workspace.CurrentCamera.CameraType =
+            Enum.CameraType.Custom
+
+        workspace.CurrentCamera.CameraSubject =
+            Humanoid
+    end
+
+end)
+
+--==================================================
+-- HEAD HEIGHT BUTTON
+--==================================================
+
+HeadButton.MouseButton1Click:Connect(function()
+
+    HeadHeight += CONFIG.HeadHeightStep
+
+    if HeadHeight >
+        CONFIG.HeadHeightMax then
+
+        HeadHeight =
+            CONFIG.HeadHeightMin
+    end
+
+    updateHeadButton()
+
+end)
+
+--==================================================
+-- ROBOT HEIGHT
+--==================================================
+
+HeightButton.MouseButton1Click:Connect(function()
+
+    CONFIG.RobotHeight +=
+        CONFIG.RobotHeightStep
+
+    if CONFIG.RobotHeight >
+        CONFIG.RobotHeightMax then
+
+        CONFIG.RobotHeight =
+            CONFIG.RobotHeightMin
+    end
+
+    HeightButton.Text =
+        "ROBOT HEIGHT : " ..
+        string.format(
+            "%.1f",
+            CONFIG.RobotHeight
         )
 
-    lastGroundY =
-        robotCenter.Y
+end)
 
-    for i = 1, 10 do
+--==================================================
+-- SPACING
+--==================================================
 
-        local prop =
-            registeredProps[i]
+SpacingButton.MouseButton1Click:Connect(function()
 
-        if prop then
+    CONFIG.PropSpacing +=
+        CONFIG.PropSpacingStep
 
-            local offset =
-                BASE_OFFSETS[
-                    SLOTS[i]
-                ]
+    if CONFIG.PropSpacing >
+        CONFIG.PropSpacingMax then
 
-            if offset then
-
-                moveProp(
-                    prop,
-                    bodyCFrame(
-                        offset
-                    )
-                )
-
-            end
-
-            task.wait(
-                0.08
-            )
-
-        end
-
+        CONFIG.PropSpacing =
+            CONFIG.PropSpacingMin
     end
 
-    status.Text =
-        "🤖 ROBOT READY"
+    SpacingButton.Text =
+        "PROP SPACING : " ..
+        string.format(
+            "%.1f",
+            CONFIG.PropSpacing
+        )
 
-end
+end)
 
---========================================================
--- REBUILD STATIC
---========================================================
+--==================================================
+-- WALK SPEED
+--==================================================
 
-local function rebuildRobot()
+SpeedButton.MouseButton1Click:Connect(function()
 
-    if not robotCenter then
-        return
+    CONFIG.WalkSpeed +=
+        CONFIG.WalkSpeedStep
+
+    if CONFIG.WalkSpeed >
+        CONFIG.WalkSpeedMax then
+
+        CONFIG.WalkSpeed =
+            CONFIG.WalkSpeedMin
     end
 
-    if not robotRotation then
-        return
-    end
+    SpeedButton.Text =
+        "WALK SPEED : " ..
+        CONFIG.WalkSpeed
 
-    for i = 1, 10 do
+end)
 
-        local prop =
-            registeredProps[i]
-
-        if prop then
-
-            local offset =
-                BASE_OFFSETS[
-                    SLOTS[i]
-                ]
-
-            if offset then
-
-                moveProp(
-                    prop,
-                    bodyCFrame(
-                        offset
-                    )
-                )
-
-            end
-
-        end
-
-    end
-
-end
-
---========================================================
--- HEIGHT
---========================================================
-
-heightMinus.MouseButton1Click:Connect(
-    function()
-
-        robotHeight =
-            math.max(
-                0.5,
-                robotHeight - 0.1
-            )
-
-        heightLabel.Text =
-            string.format(
-                "HEIGHT: %.2f",
-                robotHeight
-            )
-
-        rebuildRobot()
-
-    end
-)
-
-heightPlus.MouseButton1Click:Connect(
-    function()
-
-        robotHeight =
-            math.min(
-                3,
-                robotHeight + 0.1
-            )
-
-        heightLabel.Text =
-            string.format(
-                "HEIGHT: %.2f",
-                robotHeight
-            )
-
-        rebuildRobot()
-
-    end
-)
-
---========================================================
--- DISTANCE
---========================================================
-
-distanceMinus.MouseButton1Click:Connect(
-    function()
-
-        propDistance =
-            math.max(
-                0.5,
-                propDistance - 0.1
-            )
-
-        distanceLabel.Text =
-            string.format(
-                "DISTANCE: %.2f",
-                propDistance
-            )
-
-        rebuildRobot()
-
-    end
-)
-
-distancePlus.MouseButton1Click:Connect(
-    function()
-
-        propDistance =
-            math.min(
-                3,
-                propDistance + 0.1
-            )
-
-        distanceLabel.Text =
-            string.format(
-                "DISTANCE: %.2f",
-                propDistance
-            )
-
-        rebuildRobot()
-
-    end
-)
-
---========================================================
--- SPEED
---========================================================
-
-speedMinus.MouseButton1Click:Connect(
-    function()
-
-        walkSpeed =
-            math.max(
-                5,
-                walkSpeed - 5
-            )
-
-        speedLabel.Text =
-            "WALK SPEED: "
-            .. walkSpeed
-
-    end
-)
-
-speedPlus.MouseButton1Click:Connect(
-    function()
-
-        walkSpeed =
-            math.min(
-                100,
-                walkSpeed + 5
-            )
-
-        speedLabel.Text =
-            "WALK SPEED: "
-            .. walkSpeed
-
-    end
-)
-
---========================================================
+--==================================================
 -- JUMP POWER
---========================================================
+--==================================================
 
-jumpMinus.MouseButton1Click:Connect(
-    function()
+JumpButton.MouseButton1Click:Connect(function()
 
-        jumpPower =
-            math.max(
-                20,
-                jumpPower - 5
-            )
+    CONFIG.JumpPower +=
+        CONFIG.JumpPowerStep
 
-        jumpLabel.Text =
-            "JUMP POWER: "
-            .. jumpPower
+    if CONFIG.JumpPower >
+        CONFIG.JumpPowerMax then
 
-    end
-)
-
-jumpPlus.MouseButton1Click:Connect(
-    function()
-
-        jumpPower =
-            math.min(
-                150,
-                jumpPower + 5
-            )
-
-        jumpLabel.Text =
-            "JUMP POWER: "
-            .. jumpPower
-
-    end
-)
-
---========================================================
--- CREATE ANCHOR
---========================================================
-
-local function createAnchor()
-
-    if robotAnchor then
-        robotAnchor:Destroy()
+        CONFIG.JumpPower =
+            CONFIG.JumpPowerMin
     end
 
-    robotAnchor =
-        Instance.new("Part")
+    JumpButton.Text =
+        "JUMP POWER : " ..
+        CONFIG.JumpPower
 
-    robotAnchor.Name =
-        "MANI_ROBO_ANCHOR"
+end)
 
-    robotAnchor.Size =
-        Vector3.new(
-            1,
-            1,
-            1
-        )
+--==================================================
+-- CAMERA DISTANCE
+--==================================================
 
-    robotAnchor.Transparency = 1
+local function updateCameraButton()
 
-    robotAnchor.Anchored = true
-
-    robotAnchor.CanCollide = false
-    robotAnchor.CanTouch = false
-    robotAnchor.CanQuery = false
-
-    robotAnchor.CFrame =
-        robotRotation
-
-    robotAnchor.Parent =
-        workspace
+    CameraButton.Text =
+        "CAMERA DISTANCE : " ..
+        math.floor(CameraDistance)
 
 end
 
---========================================================
--- JUMP
---========================================================
+CameraButton.MouseButton1Click:Connect(function()
 
-local function requestJump()
+    CameraDistance += 5
 
-    if not controlEnabled then
+    if CameraDistance >
+        CONFIG.CameraMaxDistance then
+
+        CameraDistance =
+            CONFIG.CameraMinDistance
+    end
+
+    updateCameraButton()
+
+end)
+
+--==================================================
+-- CAMERA MOUSE CONTROL
+--==================================================
+
+local rotatingCamera = false
+local lastMousePosition
+
+UserInputService.InputBegan:Connect(function(input)
+
+    if not RobotEnabled then
         return
     end
 
-    if jumpState ~= "Ground" then
+    if input.UserInputType ==
+        Enum.UserInputType.MouseButton2 then
+
+        rotatingCamera = true
+
+        lastMousePosition =
+            input.Position
+    end
+
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+
+    if input.UserInputType ==
+        Enum.UserInputType.MouseButton2 then
+
+        rotatingCamera = false
+
+    end
+
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+
+    if not RobotEnabled then
         return
     end
 
-    jumpState = "Jump"
-
-    jumpVelocity =
-        jumpPower
-
-end
-
-UserInputService.JumpRequest:Connect(
-    requestJump
-)
-
---========================================================
--- INPUT / ROBOT MOVEMENT
---========================================================
-
-local function startMovement()
-
-    if movementConnection then
-
-        movementConnection:Disconnect()
-
-    end
-
-    movementConnection =
-        RunService.Heartbeat:Connect(
-            function(dt)
-
-                if not controlEnabled then
-                    return
-                end
-
-                if not robotAnchor then
-                    return
-                end
-
-                --========================================
-                -- DEFAULT ROBLOX INPUT
-                --========================================
-
-                local direction =
-                    humanoid.MoveDirection
-
-                if direction.Magnitude > 0.05 then
-
-                    local flat =
-                        Vector3.new(
-                            direction.X,
-                            0,
-                            direction.Z
-                        )
-
-                    if flat.Magnitude > 0 then
-
-                        flat =
-                            flat.Unit
-
-                        local newPosition =
-                            robotAnchor.Position
-                            + flat
-                                * walkSpeed
-                                * dt
-
-                        local target =
-                            CFrame.lookAt(
-                                newPosition,
-                                newPosition
-                                    + flat
-                            )
-
-                        robotAnchor.CFrame =
-                            robotAnchor.CFrame:Lerp(
-                                target,
-                                math.clamp(
-                                    12 * dt,
-                                    0,
-                                    1
-                                )
-                            )
-
-                    end
-
-                    moveAmount =
-                        math.clamp(
-                            moveAmount
-                                + dt * 7,
-                            0,
-                            1
-                        )
-
-                else
-
-                    moveAmount =
-                        math.clamp(
-                            moveAmount
-                                - dt * 8,
-                            0,
-                            1
-                        )
-
-                end
-
-                --========================================
-                -- JUMP PHYSICS
-                --========================================
-
-                if jumpState == "Jump" then
-
-                    jumpVelocity -=
-                        100 * dt
-
-                    verticalOffset +=
-                        jumpVelocity * dt
-
-                    if verticalOffset <= 0 then
-
-                        verticalOffset = 0
-
-                        jumpVelocity = 0
-
-                        jumpState =
-                            "Ground"
-
-                    end
-
-                end
-
-                robotCenter =
-                    robotAnchor.Position
-                    + Vector3.new(
-                        0,
-                        verticalOffset,
-                        0
-                    )
-
-                robotRotation =
-                    robotAnchor.CFrame
-
-            end
-        )
-
-end
-
---========================================================
--- CUSTOM ANIMATION
---========================================================
-
-local function updateAnimation(dt)
-
-    if not controlEnabled then
-        return
-    end
-
-    if not robotCenter then
-        return
-    end
-
-    animClock += dt
-
-    animationAccumulator += dt
-
-    -- Limit server update frequency.
-    if animationAccumulator <
-        ANIMATION_RATE
-    then
-
-        return
-
-    end
-
-    animationAccumulator = 0
-
-    local moving =
-        moveAmount > 0.05
-
-    --====================================================
-    -- WALK CYCLE
-    --====================================================
-
-    local cycle =
-        math.sin(
-            animClock * 9
-        )
-
-    local opposite =
-        math.sin(
-            animClock * 9
-            + math.pi
-        )
-
-    --====================================================
-    -- IDLE
-    --====================================================
-
-    local idle =
-        math.sin(
-            animClock * 2
-        )
-
-    local idleBob =
-        0
-
-    if not moving
-        and jumpState == "Ground"
-    then
-
-        idleBob =
-            idle * 0.08
-
-    end
-
-    --====================================================
-    -- WALK BODY BOB
-    --====================================================
-
-    local walkBob =
-        0
-
-    if moving
-        and jumpState == "Ground"
-    then
-
-        walkBob =
-            math.abs(
-                math.sin(
-                    animClock * 9
-                )
-            )
-            * 0.10
-
-    end
-
-    --====================================================
-    -- JUMP ANIMATION
-    --====================================================
-
-    local jumpBob = 0
-
-    if jumpState == "Jump" then
-
-        jumpBob =
-            0.15
-
-    end
-
-    --====================================================
-    -- EACH PROP
-    --====================================================
-
-    for i = 1, 10 do
-
-        local prop =
-            registeredProps[i]
-
-        if prop then
-
-            local slot =
-                SLOTS[i]
-
-            local offset =
-                BASE_OFFSETS[slot]
-
-            if offset then
-
-                local animationOffset =
-                    Vector3.new(
-                        0,
-                        idleBob
-                            + walkBob
-                            + jumpBob,
-                        0
-                    )
-
-                local rotation =
-                    CFrame.identity
-
-                --========================================
-                -- HEAD
-                --========================================
-
-                if slot == "Head" then
-
-                    if moving then
-
-                        rotation =
-                            CFrame.Angles(
-                                math.rad(
-                                    opposite * 3
-                                ),
-                                0,
-                                math.rad(
-                                    cycle * 2
-                                )
-                            )
-
-                    else
-
-                        rotation =
-                            CFrame.Angles(
-                                math.rad(
-                                    idle * 1.5
-                                ),
-                                0,
-                                math.rad(
-                                    idle * 1.2
-                                )
-                            )
-
-                    end
-
-                --========================================
-                -- WAIST
-                --========================================
-
-                elseif slot == "Waist" then
-
-                    if moving then
-
-                        rotation =
-                            CFrame.Angles(
-                                math.rad(
-                                    opposite * 4
-                                ),
-                                0,
-                                math.rad(
-                                    cycle * 3
-                                )
-                            )
-
-                    end
-
-                --========================================
-                -- RIGHT ARM
-                --========================================
-
-                elseif slot == "Right Hand" then
-
-                    if moving then
-
-                        rotation =
-                            CFrame.Angles(
-                                math.rad(
-                                    cycle * 25
-                                ),
-                                0,
-                                0
-                            )
-
-                        animationOffset +=
-                            Vector3.new(
-                                0,
-                                0,
-                                cycle * 0.12
-                            )
-
-                    else
-
-                        rotation =
-                            CFrame.Angles(
-                                math.rad(
-                                    idle * 3
-                                ),
-                                0,
-                                0
-                            )
-
-                    end
-
-                --========================================
-                -- LEFT ARM
-                --========================================
-
-                elseif slot == "Left Hand" then
-
-                    if moving then
-
-                        rotation =
-                            CFrame.Angles(
-                                math.rad(
-                                    opposite * 25
-                                ),
-                                0,
-                                0
-                            )
-
-                        animationOffset +=
-                            Vector3.new(
-                                0,
-                                0,
-                                opposite * 0.12
-                            )
-
-                    else
-
-                        rotation =
-                            CFrame.Angles(
-                                math.rad(
-                                    opposite * 3
-                                ),
-                                0,
-                                0
-                            )
-
-                    end
-
-                --========================================
-                -- RIGHT LEG
-                --========================================
-
-                elseif
-                    slot == "Right Leg 1"
-                    or
-                    slot == "Right Leg 2"
-                    or
-                    slot == "Right Leg 3"
-                then
-
-                    if moving then
-
-                        rotation =
-                            CFrame.Angles(
-                                math.rad(
-                                    opposite * 25
-                                ),
-                                0,
-                                0
-                            )
-
-                    end
-
-                --========================================
-                -- LEFT LEG
-                --========================================
-
-                elseif
-                    slot == "Left Leg 1"
-                    or
-                    slot == "Left Leg 2"
-                    or
-                    slot == "Left Leg 3"
-                then
-
-                    if moving then
-
-                        rotation =
-                            CFrame.Angles(
-                                math.rad(
-                                    cycle * 25
-                                ),
-                                0,
-                                0
-                            )
-
-                    end
-
-                end
-
-                --========================================
-                -- JUMP POSE
-                --========================================
-
-                if jumpState == "Jump" then
-
-                    if
-                        slot == "Right Hand"
-                        or
-                        slot == "Left Hand"
-                    then
-
-                        rotation =
-                            CFrame.Angles(
-                                math.rad(
-                                    -35
-                                ),
-                                0,
-                                0
-                            )
-
-                    elseif
-                        string.find(
-                            slot,
-                            "Leg"
-                        )
-                    then
-
-                        rotation =
-                            CFrame.Angles(
-                                math.rad(
-                                    15
-                                ),
-                                0,
-                                0
-                            )
-
-                    end
-
-                end
-
-                moveProp(
-                    prop,
-                    bodyCFrame(
-                        offset,
-                        rotation,
-                        animationOffset
-                    )
-                )
-
-            end
-
-        end
-
-    end
-
-end
-
---========================================================
--- CAMERA INPUT
---========================================================
-
-UserInputService.InputBegan:Connect(
-    function(input)
-
-        if not controlEnabled then
-            return
-        end
-
-        if
-            input.UserInputType ==
-            Enum.UserInputType.MouseButton2
-        then
-
-            cameraDragging = true
-
-            cameraDragStart =
-                input.Position
-
-            cameraYawStart =
-                targetCameraYaw
-
-            cameraPitchStart =
-                targetCameraPitch
-
-        end
-
-    end
-)
-
-UserInputService.InputChanged:Connect(
-    function(input)
-
-        if not controlEnabled then
-            return
-        end
-
-        --===============================================
-        -- PC CAMERA
-        --===============================================
-
-        if
-            input.UserInputType ==
-            Enum.UserInputType.MouseMovement
-            and
-            cameraDragging
-        then
-
-            local delta =
-                input.Position
-                - cameraDragStart
-
-            targetCameraYaw =
-                cameraYawStart
-                - delta.X * 0.35
-
-            targetCameraPitch =
-                math.clamp(
-                    cameraPitchStart
-                    - delta.Y * 0.25,
-                    -55,
-                    65
-                )
-
-        end
-
-        --===============================================
-        -- MOUSE WHEEL
-        --===============================================
-
-        if
-            input.UserInputType ==
-            Enum.UserInputType.MouseWheel
-        then
-
-            targetCameraDistance =
-                math.clamp(
-                    targetCameraDistance
-                    - input.Position.Z * 2,
-                    7,
-                    45
-                )
-
-        end
-
-    end
-)
-
-UserInputService.InputEnded:Connect(
-    function(input)
-
-        if
-            input.UserInputType ==
-            Enum.UserInputType.MouseButton2
-        then
-
-            cameraDragging = false
-
-        end
-
-    end
-)
-
---========================================================
--- MOBILE CAMERA
---========================================================
-
-local touchStart = nil
-local touchYawStart = 0
-local touchPitchStart = 0
-
-UserInputService.TouchStarted:Connect(
-    function(touch)
-
-        if not controlEnabled then
-            return
-        end
-
-        touchStart =
-            touch.Position
-
-        touchYawStart =
-            targetCameraYaw
-
-        touchPitchStart =
-            targetCameraPitch
-
-    end
-)
-
-UserInputService.TouchMoved:Connect(
-    function(touch)
-
-        if not controlEnabled then
-            return
-        end
-
-        if not touchStart then
-            return
-        end
+    if input.UserInputType ==
+        Enum.UserInputType.MouseMovement
+        and rotatingCamera then
 
         local delta =
-            touch.Position
-            - touchStart
+            input.Position -
+            lastMousePosition
 
-        targetCameraYaw =
-            touchYawStart
-            - delta.X * 0.35
+        lastMousePosition =
+            input.Position
 
-        targetCameraPitch =
+        CameraYaw -= delta.X * 0.008
+
+        CameraPitch -= delta.Y * 0.005
+
+        CameraPitch =
             math.clamp(
-                touchPitchStart
-                - delta.Y * 0.25,
-                -55,
-                65
+                CameraPitch,
+                math.rad(-35),
+                math.rad(55)
+            )
+    end
+
+end)
+
+--==================================================
+-- MOUSE WHEEL
+--==================================================
+
+UserInputService.InputChanged:Connect(function(input)
+
+    if not RobotEnabled then
+        return
+    end
+
+    if input.UserInputType ==
+        Enum.UserInputType.MouseWheel then
+
+        CameraDistance -=
+            input.Position.Z * 3
+
+        CameraDistance =
+            math.clamp(
+                CameraDistance,
+                CONFIG.CameraMinDistance,
+                CONFIG.CameraMaxDistance
             )
 
-    end
-)
-
-UserInputService.TouchEnded:Connect(
-    function()
-
-        touchStart = nil
+        updateCameraButton()
 
     end
+
+end)
+
+--==================================================
+-- MOBILE CAMERA TOUCH
+--==================================================
+
+local touchPositions = {}
+
+local previousPinchDistance = nil
+
+UserInputService.TouchStarted:Connect(function(
+    touch
 )
 
---========================================================
--- CAMERA UPDATE
---========================================================
+    if not RobotEnabled then
+        return
+    end
+
+    touchPositions[touch] =
+        touch.Position
+
+end)
+
+UserInputService.TouchMoved:Connect(function(
+    touch
+)
+
+    if not RobotEnabled then
+        return
+    end
+
+    touchPositions[touch] =
+        touch.Position
+
+    local touches = {}
+
+    for t, pos in pairs(touchPositions) do
+
+        table.insert(
+            touches,
+            {
+                Touch = t,
+                Position = pos
+            }
+        )
+
+    end
+
+    ------------------------------------------------
+    -- TWO FINGER PINCH
+    ------------------------------------------------
+
+    if #touches >= 2 then
+
+        local p1 =
+            touches[1].Position
+
+        local p2 =
+            touches[2].Position
+
+        local distance =
+            (p1 - p2).Magnitude
+
+        if previousPinchDistance then
+
+            local change =
+                distance -
+                previousPinchDistance
+
+            CameraDistance -=
+                change * 0.025
+
+            CameraDistance =
+                math.clamp(
+                    CameraDistance,
+                    CONFIG.CameraMinDistance,
+                    CONFIG.CameraMaxDistance
+                )
+
+            updateCameraButton()
+
+        end
+
+        previousPinchDistance =
+            distance
+
+    end
+
+end)
+
+UserInputService.TouchEnded:Connect(function(
+    touch
+)
+
+    touchPositions[touch] = nil
+
+    previousPinchDistance = nil
+
+end)
+
+--==================================================
+-- MOBILE SINGLE FINGER CAMERA
+--==================================================
+
+local mobileCameraTouch = nil
+local mobileLastPosition = nil
+
+UserInputService.TouchStarted:Connect(function(
+    touch
+)
+
+    if not RobotEnabled then
+        return
+    end
+
+    -- Don't take GUI touches
+    local guiObjects =
+        GuiService:GetGuiObjectsAtPosition(
+            touch.Position.X,
+            touch.Position.Y
+        )
+
+    if #guiObjects > 0 then
+        return
+    end
+
+    if mobileCameraTouch == nil then
+
+        mobileCameraTouch = touch
+        mobileLastPosition =
+            touch.Position
+
+    end
+
+end)
+
+UserInputService.TouchMoved:Connect(function(
+    touch
+)
+
+    if not RobotEnabled then
+        return
+    end
+
+    if touch ~= mobileCameraTouch then
+        return
+    end
+
+    local delta =
+        touch.Position -
+        mobileLastPosition
+
+    mobileLastPosition =
+        touch.Position
+
+    CameraYaw -=
+        delta.X * 0.008
+
+    CameraPitch -=
+        delta.Y * 0.005
+
+    CameraPitch =
+        math.clamp(
+            CameraPitch,
+            math.rad(-35),
+            math.rad(55)
+        )
+
+end)
+
+UserInputService.TouchEnded:Connect(function(
+    touch
+)
+
+    if touch == mobileCameraTouch then
+
+        mobileCameraTouch = nil
+        mobileLastPosition = nil
+
+    end
+
+end)
+
+--==================================================
+-- JUMP DETECTION
+--==================================================
+
+Humanoid.Jumping:Connect(function(
+    active
+)
+
+    if not RobotEnabled then
+        return
+    end
+
+    if active then
+
+        Jumping = true
+        JumpStart = tick()
+
+    end
+
+end)
+
+Humanoid.StateChanged:Connect(function(
+    oldState,
+    newState
+)
+
+    if newState ==
+        Enum.HumanoidStateType.Landed then
+
+        Jumping = false
+
+    end
+
+end)
+
+--==================================================
+-- CAMERA
+--==================================================
 
 local function updateCamera(dt)
 
-    if not controlEnabled then
+    if not RobotEnabled then
         return
     end
 
-    if not robotAnchor then
-        return
-    end
+    local camera =
+        workspace.CurrentCamera
 
-    -- Smooth orbit values
-    cameraYaw =
-        cameraYaw
-        + (
-            targetCameraYaw
-            - cameraYaw
-        )
-        * math.clamp(
-            10 * dt,
-            0,
-            1
-        )
-
-    cameraPitch =
-        cameraPitch
-        + (
-            targetCameraPitch
-            - cameraPitch
-        )
-        * math.clamp(
-            10 * dt,
-            0,
-            1
-        )
-
-    cameraDistance =
-        cameraDistance
-        + (
-            targetCameraDistance
-            - cameraDistance
-        )
-        * math.clamp(
-            8 * dt,
-            0,
-            1
-        )
-
-    local center =
-        robotAnchor.Position
+    local target =
+        RobotPosition
         + Vector3.new(
             0,
-            3.2 * robotHeight,
+            CONFIG.CameraHeight,
             0
         )
 
     local rotation =
         CFrame.Angles(
             0,
-            math.rad(cameraYaw),
+            CameraYaw,
             0
         )
         *
         CFrame.Angles(
-            math.rad(cameraPitch),
+            CameraPitch,
             0,
             0
         )
 
-    local direction =
-        rotation.LookVector
+    local cameraOffset =
+        rotation:VectorToWorldSpace(
+            Vector3.new(
+                0,
+                0,
+                CameraDistance
+            )
+        )
 
     local desiredPosition =
-        center
-        - direction
-            * cameraDistance
+        target + cameraOffset
 
-    local desiredCamera =
+    local desiredCF =
         CFrame.lookAt(
             desiredPosition,
-            center
+            target,
+            Vector3.new(0, 1, 0)
+        )
+
+    local alpha =
+        math.clamp(
+            dt * 8,
+            0,
+            1
         )
 
     camera.CFrame =
         camera.CFrame:Lerp(
-            desiredCamera,
-            math.clamp(
-                9 * dt,
-                0,
-                1
-            )
+            desiredCF,
+            alpha
         )
 
 end
 
---========================================================
--- START CONTROL
---========================================================
+--==================================================
+-- ROBOT MOVEMENT
+--==================================================
 
-local function startControl()
+local function updateMovement(dt)
 
-    if not robotCenter then
-
-        assembleRobot()
-
-    end
-
-    if not robotCenter then
+    if not RobotEnabled then
         return
     end
 
-    createAnchor()
+    local moveDirection =
+        Humanoid.MoveDirection
 
-    controlEnabled = true
+    if moveDirection.Magnitude > 0.05 then
 
-    controlButton.Text =
-        "CONTROL: ON"
+        local direction =
+            Vector3.new(
+                moveDirection.X,
+                0,
+                moveDirection.Z
+            )
 
-    --===============================================
-    -- DO NOT HIDE PLAYER
-    --===============================================
+        if direction.Magnitude > 0.001 then
 
-    -- Character remains completely visible.
-    --
-    -- Only anchor its root so the player's normal
-    -- character does not walk away.
+            direction =
+                direction.Unit
 
-    hrp.Anchored = true
+            RobotPosition +=
+                direction
+                * CONFIG.WalkSpeed
+                * dt
 
-    -- IMPORTANT:
-    -- Keep normal WalkSpeed so Roblox's default
-    -- joystick/keyboard continues producing
-    -- Humanoid.MoveDirection.
-    humanoid.WalkSpeed = 16
+            RobotForward =
+                RobotForward:Lerp(
+                    direction,
+                    math.clamp(
+                        dt * 8,
+                        0,
+                        1
+                    )
+                )
 
-    -- Jump button generates JumpRequest.
-    humanoid.JumpPower = 50
+            if RobotForward.Magnitude >
+                0.001 then
 
-    --===============================================
-    -- CAMERA
-    --===============================================
-
-    oldCameraType =
-        camera.CameraType
-
-    oldCameraSubject =
-        camera.CameraSubject
-
-    camera.CameraType =
-        Enum.CameraType.Scriptable
-
-    targetCameraYaw = 0
-    targetCameraPitch = 12
-    targetCameraDistance = 18
-
-    cameraYaw = 0
-    cameraPitch = 12
-    cameraDistance = 18
-
-    --===============================================
-    -- MOVEMENT
-    --===============================================
-
-    startMovement()
-
-    --===============================================
-    -- RENDER
-    --===============================================
-
-    if renderConnection then
-
-        renderConnection:Disconnect()
-
-    end
-
-    renderConnection =
-        RunService.RenderStepped:Connect(
-            function(dt)
-
-                updateAnimation(dt)
-
-                updateCamera(dt)
+                RobotForward =
+                    RobotForward.Unit
 
             end
+
+        end
+
+    end
+
+end
+
+--==================================================
+-- JUMP MOVEMENT
+--==================================================
+
+local robotVerticalVelocity = 0
+
+RunService.Heartbeat:Connect(function(dt)
+
+    if not RobotEnabled then
+        return
+    end
+
+    -- Default Roblox jump input
+    if Humanoid.Jump and
+        math.abs(robotVerticalVelocity) < 0.1 then
+
+        robotVerticalVelocity =
+            CONFIG.JumpPower
+
+        Jumping = true
+        JumpStart = tick()
+
+    end
+
+    robotVerticalVelocity -=
+        workspace.Gravity * dt
+
+    RobotPosition +=
+        Vector3.new(
+            0,
+            robotVerticalVelocity * dt,
+            0
         )
 
-end
-
---========================================================
--- STOP CONTROL
---========================================================
-
-local function stopControl()
-
-    controlEnabled = false
-
-    moveAmount = 0
-
-    jumpState =
-        "Ground"
-
-    verticalOffset = 0
-
-    if movementConnection then
-
-        movementConnection:Disconnect()
-
-        movementConnection = nil
-
-    end
-
-    if renderConnection then
-
-        renderConnection:Disconnect()
-
-        renderConnection = nil
-
-    end
-
-    --===============================================
-    -- RESTORE PLAYER
-    --===============================================
-
-    if hrp then
-        hrp.Anchored = false
-    end
-
-    humanoid.WalkSpeed = 16
-    humanoid.JumpPower = 50
-
-    --===============================================
-    -- CAMERA RESTORE
-    --===============================================
-
-    camera.CameraType =
-        oldCameraType
-        or Enum.CameraType.Custom
-
-    camera.CameraSubject =
-        oldCameraSubject
-        or humanoid
-
-    --===============================================
-    -- ANIMATION RESET
-    --===============================================
-
-    rebuildRobot()
-
-    controlButton.Text =
-        "CONTROL: OFF"
-
-    if robotAnchor then
-
-        robotAnchor:Destroy()
-
-        robotAnchor = nil
-
-    end
-
-end
-
---========================================================
--- CONTROL BUTTON
---========================================================
-
-controlButton.MouseButton1Click:Connect(
-    function()
-
-        if controlEnabled then
-
-            stopControl()
-
-        else
-
-            startControl()
-
-        end
-
-    end
-)
-
---========================================================
--- LOAD
---========================================================
-
-loadButton.MouseButton1Click:Connect(
-    function()
-
-        loadProps()
-
-    end
-)
-
---========================================================
--- ASSEMBLE
---========================================================
-
-assembleButton.MouseButton1Click:Connect(
-    function()
-
-        assembleRobot()
-
-    end
-)
-
---========================================================
--- MINIMIZE
---========================================================
-
-local minimized = false
-
-minimize.MouseButton1Click:Connect(
-    function()
-
-        minimized =
-            not minimized
-
-        scroll.Visible =
-            not minimized
-
-        resize.Visible =
-            not minimized
-
-        if minimized then
-
-            main.Size =
-                UDim2.fromOffset(
-                    225,
-                    38
-                )
-
-            minimize.Text = "+"
-
-        else
-
-            main.Size =
-                UDim2.fromOffset(
-                    225,
-                    280
-                )
-
-            minimize.Text = "—"
-
-        end
-
-    end
-)
-
---========================================================
--- CLOSE
---========================================================
-
-close.MouseButton1Click:Connect(
-    function()
-
-        stopControl()
-
-        gui:Destroy()
-
-    end
-)
-
---========================================================
--- RESPAWN
---========================================================
-
-player.CharacterAdded:Connect(
-    function(newCharacter)
-
-        if controlEnabled then
-            stopControl()
-        end
-
-        character =
-            newCharacter
-
-        humanoid =
-            character:WaitForChild(
-                "Humanoid"
+    -- Ground reference
+    local groundY =
+        HRP.Position.Y
+
+    if RobotPosition.Y <
+        groundY then
+
+        RobotPosition =
+            Vector3.new(
+                RobotPosition.X,
+                groundY,
+                RobotPosition.Z
             )
 
-        hrp =
-            character:WaitForChild(
-                "HumanoidRootPart"
+        robotVerticalVelocity = 0
+
+        Jumping = false
+
+    end
+
+end)
+
+--==================================================
+-- MAIN RENDER LOOP
+--==================================================
+
+RunService.RenderStepped:Connect(function(dt)
+
+    if not RobotLoaded then
+        return
+    end
+
+    if RobotEnabled then
+
+        updateMovement(dt)
+
+        updateRobot()
+
+        updateCamera(dt)
+
+    else
+
+        -- Keep assembled robot around
+        -- player's current position
+
+        RobotPosition =
+            RobotPosition:Lerp(
+                HRP.Position,
+                math.clamp(
+                    dt * 4,
+                    0,
+                    1
+                )
             )
 
     end
+
+end)
+
+--==================================================
+-- CHARACTER RESPAWN
+--==================================================
+
+LocalPlayer.CharacterAdded:Connect(function(
+    newCharacter
 )
 
---========================================================
--- INITIAL
---========================================================
+    Character = newCharacter
 
-updateSlots()
+    Humanoid =
+        newCharacter:WaitForChild(
+            "Humanoid"
+        )
 
-print(
-    "🎃 MANI PUMPKIN ROBO V.3 LOADED"
-)
+    HRP =
+        newCharacter:WaitForChild(
+            "HumanoidRootPart"
+        )
+
+    if RobotEnabled then
+
+        HRP.Anchored = true
+        Humanoid.AutoRotate = false
+
+    end
+
+end)
+
+--==================================================
+-- STARTUP
+--==================================================
+
+updateControlText()
+updateHeadButton()
+updateCameraButton()
+
+print("================================")
+print("🎃 MANI PUMPKIN ROBO V.4")
+print("10 PROP ROBOT READY")
+print("PC + MOBILE")
+print("HEAD HEIGHT FIX")
+print("HAND MOVEMENT FIX")
+print("LEG ANIMATION FIX")
+print("================================")
