@@ -1,7 +1,15 @@
 --==============================================================
 -- 🎃 MANI PUMPKIN ROBO V.1
--- PC + MOBILE | SMALL MODERN DARK GUI
--- 15 PROPS | ROBOT ASSEMBLY | JOYSTICK CONTROL
+--==============================================================
+-- SMALL MODERN GUI
+-- PC + MOBILE
+-- DRAGGABLE
+-- MINIMIZE
+-- 15 PROPS
+-- ASSEMBLE
+-- ROBOT CAMERA
+-- DEFAULT ROBLOX JOYSTICK
+-- DEFAULT ROBLOX JUMP BUTTON
 --==============================================================
 
 repeat task.wait() until game:IsLoaded()
@@ -21,9 +29,14 @@ local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 
-local char = player.Character or player.CharacterAdded:Wait()
-local hrp = char:WaitForChild("HumanoidRootPart")
-local humanoid = char:WaitForChild("Humanoid")
+local character = player.Character
+    or player.CharacterAdded:Wait()
+
+local humanoid =
+    character:WaitForChild("Humanoid")
+
+local hrp =
+    character:WaitForChild("HumanoidRootPart")
 
 --==============================================================
 -- CONFIG
@@ -31,309 +44,267 @@ local humanoid = char:WaitForChild("Humanoid")
 
 local CONFIG = {
 
-    FolderPath = {
-        "WorkspaceCom",
-        "001_TrafficCones"
-    },
+    Folder1 = "WorkspaceCom",
+    Folder2 = "001_TrafficCones",
 
-    -- Robot movement
-    MoveSpeed = 38,
-    TurnSpeed = 8,
+    MaxProps = 15,
 
-    -- Camera
-    CameraDistance = 18,
-    CameraHeight = 7,
+    MoveSpeed = 35,
+
+    TurnSpeed = 10,
+
+    CameraDistance = 17,
+
+    CameraHeight = 6,
+
     CameraLookHeight = 3,
 
-    -- Reset circle
+    JumpHeight = 5,
+
     ResetRadius = 12,
 
-    -- Height
     HeightMin = 0.50,
+
     HeightMax = 3.00,
+
     HeightStep = 0.25,
+
     HeightDefault = 1.00,
 
-    -- GUI
-    GuiWidth = 290,
-    GuiHeight = 455,
 }
 
 --==============================================================
--- 15 ROBOT SLOTS
+-- ROBOT ORDER
 --==============================================================
 
-local SPAWN_ORDER = {
+local ROBOT_ORDER = {
 
-    -- MAIN BODY
-    "Head",        -- 1
-    "Waist",       -- 2
-    "RightHand",   -- 3
-    "LeftHand",    -- 4
+    [1] = "Head",
 
-    -- RIGHT LEG
-    "RightLeg1",   -- 5
-    "RightLeg2",   -- 6
-    "RightLeg3",   -- 7
+    [2] = "Waist",
 
-    -- LEFT LEG
-    "LeftLeg1",    -- 8
-    "LeftLeg2",    -- 9
-    "LeftLeg3",    -- 10
+    [3] = "Right Hand",
 
-    -- EXTRA 5 PROPS
-    "Armor1",      -- 11
-    "Armor2",      -- 12
-    "Armor3",      -- 13
-    "Armor4",      -- 14
-    "Armor5",      -- 15
+    [4] = "Left Hand",
+
+    [5] = "Right Leg 1",
+
+    [6] = "Right Leg 2",
+
+    [7] = "Right Leg 3",
+
+    [8] = "Left Leg 1",
+
+    [9] = "Left Leg 2",
+
+    [10] = "Left Leg 3",
+
+    [11] = "Extra 1",
+
+    [12] = "Extra 2",
+
+    [13] = "Extra 3",
+
+    [14] = "Extra 4",
+
+    [15] = "Extra 5",
+
 }
 
 --==============================================================
--- ROBOT POSITIONS
+-- ROBOT OFFSETS
 --==============================================================
 
-local BASE_OFFSETS = {
+local OFFSETS = {
 
-    -- Head
-    Head = Vector3.new(
-        0,
-        5.5,
-        0
-    ),
+    [1] =
+        Vector3.new(0, 5.5, 0),
 
-    -- Waist
-    Waist = Vector3.new(
-        0,
-        3.0,
-        0
-    ),
+    [2] =
+        Vector3.new(0, 3.0, 0),
 
-    -- Hands
-    RightHand = Vector3.new(
-        2.5,
-        3.5,
-        0
-    ),
+    [3] =
+        Vector3.new(2.5, 3.5, 0),
 
-    LeftHand = Vector3.new(
-        -2.5,
-        3.5,
-        0
-    ),
+    [4] =
+        Vector3.new(-2.5, 3.5, 0),
 
-    -- Right Leg
-    RightLeg1 = Vector3.new(
-        1.2,
-        1.5,
-        0
-    ),
+    [5] =
+        Vector3.new(1.2, 1.5, 0),
 
-    RightLeg2 = Vector3.new(
-        1.2,
-        0.3,
-        0
-    ),
+    [6] =
+        Vector3.new(1.2, 0.3, 0),
 
-    RightLeg3 = Vector3.new(
-        1.2,
-        -0.9,
-        0
-    ),
+    [7] =
+        Vector3.new(1.2, -0.9, 0),
 
-    -- Left Leg
-    LeftLeg1 = Vector3.new(
-        -1.2,
-        1.5,
-        0
-    ),
+    [8] =
+        Vector3.new(-1.2, 1.5, 0),
 
-    LeftLeg2 = Vector3.new(
-        -1.2,
-        0.3,
-        0
-    ),
+    [9] =
+        Vector3.new(-1.2, 0.3, 0),
 
-    LeftLeg3 = Vector3.new(
-        -1.2,
-        -0.9,
-        0
-    ),
+    [10] =
+        Vector3.new(-1.2, -0.9, 0),
 
-    --==========================================================
-    -- EXTRA ARMOR / DETAIL PROPS
-    --==========================================================
+    -- 11-15
+    [11] =
+        Vector3.new(0, 4.1, 0.8),
 
-    Armor1 = Vector3.new(
-        0,
-        4.0,
-        1.5
-    ),
+    [12] =
+        Vector3.new(0, 3.5, 0.9),
 
-    Armor2 = Vector3.new(
-        1.4,
-        4.0,
-        0.8
-    ),
+    [13] =
+        Vector3.new(0, 2.7, 0.9),
 
-    Armor3 = Vector3.new(
-        -1.4,
-        4.0,
-        0.8
-    ),
+    [14] =
+        Vector3.new(0, 1.8, 0.8),
 
-    Armor4 = Vector3.new(
-        0,
-        2.5,
-        1.2
-    ),
+    [15] =
+        Vector3.new(0, 0.7, 0.6),
 
-    Armor5 = Vector3.new(
-        0,
-        1.2,
-        0.8
-    ),
 }
 
 --==============================================================
 -- GUI
 --==============================================================
 
-local gui = Instance.new("ScreenGui")
-gui.Name = "MANI_PUMPKIN_ROBO_V1"
+local gui =
+    Instance.new("ScreenGui")
+
+gui.Name =
+    "MANI_PUMPKIN_ROBO_V1"
+
 gui.ResetOnSpawn = false
+
 gui.IgnoreGuiInset = true
-gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-gui.Parent = player:WaitForChild("PlayerGui")
+
+gui.ZIndexBehavior =
+    Enum.ZIndexBehavior.Sibling
+
+gui.Parent =
+    player:WaitForChild("PlayerGui")
 
 --==============================================================
--- MAIN WINDOW
+-- MAIN
 --==============================================================
 
-local main = Instance.new("Frame")
+local main =
+    Instance.new("Frame")
+
 main.Name = "Main"
-main.Size = UDim2.new(
-    0,
-    CONFIG.GuiWidth,
-    0,
-    CONFIG.GuiHeight
-)
 
-main.Position = UDim2.new(
-    0,
-    18,
-    0.5,
-    -(CONFIG.GuiHeight / 2)
-)
+main.Size =
+    UDim2.new(0, 285, 0, 430)
 
-main.BackgroundColor3 = Color3.fromRGB(
-    15,
-    15,
-    19
-)
+main.Position =
+    UDim2.new(0, 15, 0.5, -215)
+
+main.BackgroundColor3 =
+    Color3.fromRGB(15, 15, 19)
 
 main.BorderSizePixel = 0
+
 main.Active = true
+
 main.Parent = gui
 
-Instance.new("UICorner", main).CornerRadius =
+local mainCorner =
+    Instance.new("UICorner", main)
+
+mainCorner.CornerRadius =
     UDim.new(0, 14)
 
-local mainStroke = Instance.new(
-    "UIStroke",
-    main
-)
+local mainStroke =
+    Instance.new("UIStroke", main)
 
-mainStroke.Color = Color3.fromRGB(
-    255,
-    140,
-    35
-)
+mainStroke.Color =
+    Color3.fromRGB(255, 140, 35)
 
-mainStroke.Thickness = 1.4
+mainStroke.Thickness = 1.3
+
 mainStroke.Transparency = 0.35
 
 --==============================================================
 -- TITLE BAR
 --==============================================================
 
-local titleBar = Instance.new(
-    "Frame",
-    main
-)
+local titleBar =
+    Instance.new("Frame", main)
 
-titleBar.Size = UDim2.new(
-    1,
-    0,
-    0,
-    48
-)
+titleBar.Size =
+    UDim2.new(1, 0, 0, 46)
 
-titleBar.BackgroundColor3 = Color3.fromRGB(
-    23,
-    23,
-    28
-)
+titleBar.BackgroundColor3 =
+    Color3.fromRGB(24, 24, 29)
 
 titleBar.BorderSizePixel = 0
+
 titleBar.Active = true
 
-Instance.new("UICorner", titleBar).CornerRadius =
+local titleCorner =
+    Instance.new("UICorner", titleBar)
+
+titleCorner.CornerRadius =
     UDim.new(0, 14)
 
 -- bottom cover
-local titleFix = Instance.new(
-    "Frame",
-    titleBar
-)
 
-titleFix.Size = UDim2.new(
-    1,
-    0,
-    0,
-    18
-)
+local titleCover =
+    Instance.new("Frame", titleBar)
 
-titleFix.Position = UDim2.new(
-    0,
-    0,
-    1,
-    -18
-)
+titleCover.Size =
+    UDim2.new(1, 0, 0, 15)
 
-titleFix.BackgroundColor3 =
-    Color3.fromRGB(23,23,28)
+titleCover.Position =
+    UDim2.new(0, 0, 1, -15)
 
-titleFix.BorderSizePixel = 0
+titleCover.BackgroundColor3 =
+    Color3.fromRGB(24, 24, 29)
+
+titleCover.BorderSizePixel = 0
 
 --==============================================================
--- DRAG SYSTEM
+-- DRAG
 --==============================================================
 
 local dragging = false
+
 local dragStart
-local startPos
+
+local startPosition
 
 titleBar.InputBegan:Connect(function(input)
 
-    if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
+    if input.UserInputType ==
+        Enum.UserInputType.MouseButton1
+        or input.UserInputType ==
+        Enum.UserInputType.Touch then
 
         dragging = true
 
         dragStart = input.Position
-        startPos = main.Position
 
-        input.Changed:Connect(function()
+        startPosition =
+            main.Position
 
-            if input.UserInputState ==
-                Enum.UserInputState.End then
+        local connection
 
-                dragging = false
+        connection =
+            input.Changed:Connect(function()
 
-            end
+                if input.UserInputState ==
+                    Enum.UserInputState.End then
 
-        end)
+                    dragging = false
+
+                    if connection then
+                        connection:Disconnect()
+                    end
+
+                end
+
+            end)
 
     end
 
@@ -353,14 +324,20 @@ UserInputService.InputChanged:Connect(function(input)
         local delta =
             input.Position - dragStart
 
-        main.Position = UDim2.new(
+        main.Position =
+            UDim2.new(
 
-            startPos.X.Scale,
-            startPos.X.Offset + delta.X,
+                startPosition.X.Scale,
 
-            startPos.Y.Scale,
-            startPos.Y.Offset + delta.Y
-        )
+                startPosition.X.Offset
+                    + delta.X,
+
+                startPosition.Y.Scale,
+
+                startPosition.Y.Offset
+                    + delta.Y
+
+            )
 
     end
 
@@ -370,24 +347,14 @@ end)
 -- TITLE
 --==============================================================
 
-local title = Instance.new(
-    "TextLabel",
-    titleBar
-)
+local title =
+    Instance.new("TextLabel", titleBar)
 
-title.Size = UDim2.new(
-    1,
-    -92,
-    1,
-    0
-)
+title.Size =
+    UDim2.new(1, -88, 1, 0)
 
-title.Position = UDim2.new(
-    0,
-    14,
-    0,
-    0
-)
+title.Position =
+    UDim2.new(0, 13, 0, 0)
 
 title.BackgroundTransparency = 1
 
@@ -397,140 +364,94 @@ title.Text =
 title.Font =
     Enum.Font.GothamBold
 
-title.TextSize = 14
+title.TextSize = 13
 
 title.TextColor3 =
-    Color3.fromRGB(
-        255,
-        166,
-        55
-    )
+    Color3.fromRGB(255, 165, 55)
 
 title.TextXAlignment =
     Enum.TextXAlignment.Left
 
 --==============================================================
--- MINIMIZE
+-- MIN BUTTON
 --==============================================================
 
-local minBtn = Instance.new(
-    "TextButton",
-    titleBar
-)
+local minButton =
+    Instance.new("TextButton", titleBar)
 
-minBtn.Size = UDim2.new(
-    0,
-    30,
-    0,
-    30
-)
+minButton.Size =
+    UDim2.new(0, 29, 0, 29)
 
-minBtn.Position = UDim2.new(
-    1,
-    -70,
-    0,
-    9
-)
+minButton.Position =
+    UDim2.new(1, -67, 0, 8)
 
-minBtn.BackgroundColor3 =
-    Color3.fromRGB(
-        42,
-        42,
-        50
-    )
+minButton.BackgroundColor3 =
+    Color3.fromRGB(43, 43, 51)
 
-minBtn.Text = "—"
+minButton.Text = "—"
 
-minBtn.Font =
+minButton.Font =
     Enum.Font.GothamBold
 
-minBtn.TextSize = 17
+minButton.TextSize = 16
 
-minBtn.TextColor3 =
-    Color3.fromRGB(
-        255,
-        190,
-        100
-    )
+minButton.TextColor3 =
+    Color3.fromRGB(255, 195, 110)
 
-minBtn.BorderSizePixel = 0
+minButton.BorderSizePixel = 0
 
-Instance.new("UICorner", minBtn).CornerRadius =
+Instance.new(
+    "UICorner",
+    minButton
+).CornerRadius =
     UDim.new(0, 8)
 
 --==============================================================
 -- CLOSE
 --==============================================================
 
-local closeBtn = Instance.new(
-    "TextButton",
-    titleBar
-)
+local closeButton =
+    Instance.new("TextButton", titleBar)
 
-closeBtn.Size = UDim2.new(
-    0,
-    30,
-    0,
-    30
-)
+closeButton.Size =
+    UDim2.new(0, 29, 0, 29)
 
-closeBtn.Position = UDim2.new(
-    1,
-    -36,
-    0,
-    9
-)
+closeButton.Position =
+    UDim2.new(1, -34, 0, 8)
 
-closeBtn.BackgroundColor3 =
-    Color3.fromRGB(
-        55,
-        25,
-        30
-    )
+closeButton.BackgroundColor3 =
+    Color3.fromRGB(58, 27, 31)
 
-closeBtn.Text = "×"
+closeButton.Text = "×"
 
-closeBtn.Font =
+closeButton.Font =
     Enum.Font.GothamBold
 
-closeBtn.TextSize = 17
+closeButton.TextSize = 17
 
-closeBtn.TextColor3 =
-    Color3.fromRGB(
-        255,
-        100,
-        100
-    )
+closeButton.TextColor3 =
+    Color3.fromRGB(255, 105, 105)
 
-closeBtn.BorderSizePixel = 0
+closeButton.BorderSizePixel = 0
 
-Instance.new("UICorner", closeBtn).CornerRadius =
+Instance.new(
+    "UICorner",
+    closeButton
+).CornerRadius =
     UDim.new(0, 8)
 
 --==============================================================
 -- BODY
 --==============================================================
 
-local body = Instance.new(
-    "Frame",
-    main
-)
+local body =
+    Instance.new("Frame", main)
 
-body.Name = "Body"
+body.Size =
+    UDim2.new(1, -18, 1, -55)
 
-body.Size = UDim2.new(
-    1,
-    -20,
-    1,
-    -58
-)
-
-body.Position = UDim2.new(
-    0,
-    10,
-    0,
-    54
-)
+body.Position =
+    UDim2.new(0, 9, 0, 51)
 
 body.BackgroundTransparency = 1
 
@@ -538,268 +459,224 @@ body.BackgroundTransparency = 1
 -- STATUS
 --==============================================================
 
-local status = Instance.new(
-    "TextLabel",
-    body
-)
+local status =
+    Instance.new("TextLabel", body)
 
-status.Size = UDim2.new(
-    1,
-    0,
-    0,
-    32
-)
+status.Size =
+    UDim2.new(1, 0, 0, 30)
 
 status.BackgroundColor3 =
-    Color3.fromRGB(
-        27,
-        27,
-        34
-    )
+    Color3.fromRGB(27, 27, 34)
 
 status.Text =
-    "●  Ready"
+    "●  READY"
 
 status.Font =
     Enum.Font.GothamMedium
 
-status.TextSize = 11
+status.TextSize = 10
 
 status.TextColor3 =
-    Color3.fromRGB(
-        130,
-        255,
-        165
-    )
+    Color3.fromRGB(125, 255, 165)
 
-Instance.new("UICorner", status).CornerRadius =
+Instance.new(
+    "UICorner",
+    status
+).CornerRadius =
     UDim.new(0, 8)
 
 --==============================================================
--- PROP COUNTER
+-- COUNTER
 --==============================================================
 
-local propCounter = Instance.new(
-    "TextLabel",
-    body
-)
+local counter =
+    Instance.new("TextLabel", body)
 
-propCounter.Size = UDim2.new(
-    1,
-    0,
-    0,
-    22
-)
+counter.Size =
+    UDim2.new(1, 0, 0, 22)
 
-propCounter.Position = UDim2.new(
-    0,
-    0,
-    0,
-    37
-)
+counter.Position =
+    UDim2.new(0, 0, 0, 34)
 
-propCounter.BackgroundTransparency = 1
+counter.BackgroundTransparency = 1
 
-propCounter.Text =
-    "ROBOT PARTS   0 / 15"
+counter.Text =
+    "PROPS  0 / 15"
 
-propCounter.Font =
+counter.Font =
     Enum.Font.GothamBold
 
-propCounter.TextSize = 10
+counter.TextSize = 9
 
-propCounter.TextColor3 =
-    Color3.fromRGB(
-        150,
-        150,
-        165
-    )
+counter.TextColor3 =
+    Color3.fromRGB(145, 145, 155)
 
-propCounter.TextXAlignment =
+counter.TextXAlignment =
     Enum.TextXAlignment.Left
 
 --==============================================================
--- BUTTON FUNCTION
+-- BUTTON CREATOR
 --==============================================================
 
-local function makeButton(
+local function createButton(
     text,
-    position,
-    background,
-    textColor
+    y,
+    bg,
+    fg
 )
 
-    local button = Instance.new(
-        "TextButton",
-        body
-    )
+    local button =
+        Instance.new(
+            "TextButton",
+            body
+        )
 
-    button.Size = UDim2.new(
-        1,
-        0,
-        0,
-        38
-    )
+    button.Size =
+        UDim2.new(
+            1,
+            0,
+            0,
+            37
+        )
 
-    button.Position = position
+    button.Position =
+        UDim2.new(
+            0,
+            0,
+            0,
+            y
+        )
 
     button.BackgroundColor3 =
-        background
+        bg
 
-    button.Text = text
+    button.Text =
+        text
 
     button.Font =
         Enum.Font.GothamBold
 
-    button.TextSize = 11
+    button.TextSize = 10
 
     button.TextColor3 =
-        textColor
+        fg
 
     button.BorderSizePixel = 0
 
     button.AutoButtonColor = false
 
-    Instance.new("UICorner", button).CornerRadius =
+    Instance.new(
+        "UICorner",
+        button
+    ).CornerRadius =
         UDim.new(0, 9)
 
     local stroke =
-        Instance.new("UIStroke", button)
+        Instance.new(
+            "UIStroke",
+            button
+        )
 
-    stroke.Color = textColor
+    stroke.Color = fg
+
     stroke.Thickness = 1
-    stroke.Transparency = 0.78
 
-    button.MouseEnter:Connect(function()
-
-        TweenService:Create(
-            button,
-            TweenInfo.new(0.12),
-            {
-                BackgroundColor3 =
-                    Color3.new(
-                        math.min(background.R + 0.06, 1),
-                        math.min(background.G + 0.06, 1),
-                        math.min(background.B + 0.06, 1)
-                    )
-            }
-        ):Play()
-
-    end)
-
-    button.MouseLeave:Connect(function()
-
-        TweenService:Create(
-            button,
-            TweenInfo.new(0.12),
-            {
-                BackgroundColor3 =
-                    background
-            }
-        ):Play()
-
-    end)
+    stroke.Transparency = 0.8
 
     return button
 end
 
 --==============================================================
--- MAIN BUTTONS
+-- BUTTONS
 --==============================================================
 
-local spawnBtn = makeButton(
-    "📦   RESCAN 15 PROPS",
-    UDim2.new(0,0,0,64),
-    Color3.fromRGB(29,38,57),
-    Color3.fromRGB(120,190,255)
-)
+local scanButton =
+    createButton(
+        "📦  RESCAN PROPS",
+        62,
+        Color3.fromRGB(28, 38, 57),
+        Color3.fromRGB(120, 190, 255)
+    )
 
-local assembleBtn = makeButton(
-    "🤖   ASSEMBLE ROBOT",
-    UDim2.new(0,0,0,108),
-    Color3.fromRGB(58,39,22),
-    Color3.fromRGB(255,185,80)
-)
+local assembleButton =
+    createButton(
+        "🤖  ASSEMBLE ROBOT",
+        105,
+        Color3.fromRGB(58, 39, 21),
+        Color3.fromRGB(255, 185, 80)
+    )
 
-local controlBtn = makeButton(
-    "🎮   CONTROL ROBOT",
-    UDim2.new(0,0,0,152),
-    Color3.fromRGB(25,55,38),
-    Color3.fromRGB(120,255,165)
-)
+local controlButton =
+    createButton(
+        "🎮  CONTROL ROBOT",
+        148,
+        Color3.fromRGB(24, 53, 37),
+        Color3.fromRGB(120, 255, 165)
+    )
 
-local resetBtn = makeButton(
-    "♻   RESET TO CIRCLE",
-    UDim2.new(0,0,0,196),
-    Color3.fromRGB(55,28,32),
-    Color3.fromRGB(255,130,135)
-)
+local resetButton =
+    createButton(
+        "♻  RESET PROPS",
+        191,
+        Color3.fromRGB(54, 27, 31),
+        Color3.fromRGB(255, 130, 135)
+    )
 
 --==============================================================
--- HEIGHT PANEL
+-- HEIGHT
 --==============================================================
 
-local heightPanel = Instance.new(
-    "Frame",
-    body
-)
+local heightPanel =
+    Instance.new("Frame", body)
 
-heightPanel.Size = UDim2.new(
-    1,
-    0,
-    0,
-    65
-)
+heightPanel.Size =
+    UDim2.new(1, 0, 0, 60)
 
-heightPanel.Position = UDim2.new(
-    0,
-    0,
-    0,
-    242
-)
+heightPanel.Position =
+    UDim2.new(0, 0, 0, 235)
 
 heightPanel.BackgroundColor3 =
-    Color3.fromRGB(
-        25,
-        25,
-        32
-    )
+    Color3.fromRGB(24, 24, 31)
 
 heightPanel.BorderSizePixel = 0
 
-Instance.new("UICorner", heightPanel).CornerRadius =
-    UDim.new(0, 10)
-
--- label
-
-local heightTitle = Instance.new(
-    "TextLabel",
+Instance.new(
+    "UICorner",
     heightPanel
-)
+).CornerRadius =
+    UDim.new(0, 9)
 
-heightTitle.Size = UDim2.new(
-    1,
-    -20,
-    0,
-    20
-)
+local heightTitle =
+    Instance.new(
+        "TextLabel",
+        heightPanel
+    )
 
-heightTitle.Position = UDim2.new(
-    0,
-    10,
-    0,
-    4
-)
+heightTitle.Size =
+    UDim2.new(
+        1,
+        -16,
+        0,
+        18
+    )
+
+heightTitle.Position =
+    UDim2.new(
+        0,
+        8,
+        0,
+        3
+    )
 
 heightTitle.BackgroundTransparency = 1
 
 heightTitle.Text =
-    "📏  ROBOT HEIGHT"
+    "ROBOT HEIGHT"
 
 heightTitle.Font =
     Enum.Font.GothamBold
 
-heightTitle.TextSize = 10
+heightTitle.TextSize = 9
 
 heightTitle.TextColor3 =
     Color3.fromRGB(
@@ -813,77 +690,86 @@ heightTitle.TextXAlignment =
 
 -- minus
 
-local minusBtn = Instance.new(
-    "TextButton",
-    heightPanel
-)
-
-minusBtn.Size = UDim2.new(
-    0,
-    48,
-    0,
-    29
-)
-
-minusBtn.Position = UDim2.new(
-    0,
-    8,
-    0,
-    29
-)
-
-minusBtn.BackgroundColor3 =
-    Color3.fromRGB(
-        55,
-        28,
-        32
+local minus =
+    Instance.new(
+        "TextButton",
+        heightPanel
     )
 
-minusBtn.Text = "−"
+minus.Size =
+    UDim2.new(
+        0,
+        45,
+        0,
+        28
+    )
 
-minusBtn.Font =
+minus.Position =
+    UDim2.new(
+        0,
+        7,
+        0,
+        27
+    )
+
+minus.BackgroundColor3 =
+    Color3.fromRGB(
+        55,
+        27,
+        31
+    )
+
+minus.Text = "−"
+
+minus.Font =
     Enum.Font.GothamBold
 
-minusBtn.TextSize = 17
+minus.TextSize = 17
 
-minusBtn.TextColor3 =
+minus.TextColor3 =
     Color3.fromRGB(
         255,
-        130,
+        125,
         130
     )
 
-minusBtn.BorderSizePixel = 0
+minus.BorderSizePixel = 0
 
-Instance.new("UICorner", minusBtn).CornerRadius =
+Instance.new(
+    "UICorner",
+    minus
+).CornerRadius =
     UDim.new(0, 7)
 
 -- value
 
-local heightValue = Instance.new(
-    "TextLabel",
-    heightPanel
-)
+local heightValue =
+    Instance.new(
+        "TextLabel",
+        heightPanel
+    )
 
-heightValue.Size = UDim2.new(
-    1,
-    -116,
-    0,
-    29
-)
+heightValue.Size =
+    UDim2.new(
+        1,
+        -112,
+        0,
+        28
+    )
 
-heightValue.Position = UDim2.new(
-    0,
-    58,
-    0,
-    29
-)
+heightValue.Position =
+    UDim2.new(
+        0,
+        56,
+        0,
+        27
+    )
 
 heightValue.BackgroundColor3 =
     Color3.fromRGB(
-        16,
-        16,
-        21
+        14,
+        14,
+        18
     )
 
 heightValue.Text =
@@ -892,7 +778,7 @@ heightValue.Text =
 heightValue.Font =
     Enum.Font.GothamBold
 
-heightValue.TextSize = 12
+heightValue.TextSize = 11
 
 heightValue.TextColor3 =
     Color3.fromRGB(
@@ -901,241 +787,259 @@ heightValue.TextColor3 =
         145
     )
 
-Instance.new("UICorner", heightValue).CornerRadius =
+Instance.new(
+    "UICorner",
+    heightValue
+).CornerRadius =
     UDim.new(0, 7)
 
 -- plus
 
-local plusBtn = Instance.new(
-    "TextButton",
-    heightPanel
-)
-
-plusBtn.Size = UDim2.new(
-    0,
-    48,
-    0,
-    29
-)
-
-plusBtn.Position = UDim2.new(
-    1,
-    -56,
-    0,
-    29
-)
-
-plusBtn.BackgroundColor3 =
-    Color3.fromRGB(
-        25,
-        55,
-        38
+local plus =
+    Instance.new(
+        "TextButton",
+        heightPanel
     )
 
-plusBtn.Text = "+"
+plus.Size =
+    UDim2.new(
+        0,
+        45,
+        0,
+        28
+    )
 
-plusBtn.Font =
+plus.Position =
+    UDim2.new(
+        1,
+        -52,
+        0,
+        27
+    )
+
+plus.BackgroundColor3 =
+    Color3.fromRGB(
+        24,
+        53,
+        37
+    )
+
+plus.Text = "+"
+
+plus.Font =
     Enum.Font.GothamBold
 
-plusBtn.TextSize = 17
+plus.TextSize = 17
 
-plusBtn.TextColor3 =
+plus.TextColor3 =
     Color3.fromRGB(
         120,
         255,
         165
     )
 
-plusBtn.BorderSizePixel = 0
+plus.BorderSizePixel = 0
 
-Instance.new("UICorner", plusBtn).CornerRadius =
+Instance.new(
+    "UICorner",
+    plus
+).CornerRadius =
     UDim.new(0, 7)
 
 --==============================================================
 -- PROP LIST
 --==============================================================
 
-local listFrame = Instance.new(
-    "ScrollingFrame",
-    body
-)
-
-listFrame.Size = UDim2.new(
-    1,
-    0,
-    0,
-    108
-)
-
-listFrame.Position = UDim2.new(
-    0,
-    0,
-    0,
-    316
-)
-
-listFrame.BackgroundColor3 =
-    Color3.fromRGB(
-        20,
-        20,
-        26
+local propList =
+    Instance.new(
+        "ScrollingFrame",
+        body
     )
 
-listFrame.BorderSizePixel = 0
+propList.Size =
+    UDim2.new(
+        1,
+        0,
+        0,
+        100
+    )
 
-listFrame.ScrollBarThickness = 3
+propList.Position =
+    UDim2.new(
+        0,
+        0,
+        0,
+        303
+    )
 
-listFrame.ScrollBarImageColor3 =
+propList.BackgroundColor3 =
+    Color3.fromRGB(
+        19,
+        19,
+        24
+    )
+
+propList.BorderSizePixel = 0
+
+propList.ScrollBarThickness = 3
+
+propList.ScrollBarImageColor3 =
     Color3.fromRGB(
         255,
         145,
         40
     )
 
-listFrame.AutomaticCanvasSize =
+propList.AutomaticCanvasSize =
     Enum.AutomaticSize.Y
 
-listFrame.CanvasSize =
+propList.CanvasSize =
     UDim2.new()
 
-Instance.new("UICorner", listFrame).CornerRadius =
+Instance.new(
+    "UICorner",
+    propList
+).CornerRadius =
     UDim.new(0, 9)
 
 local listLayout =
     Instance.new(
         "UIListLayout",
-        listFrame
+        propList
     )
 
 listLayout.Padding =
-    UDim.new(0, 3)
+    UDim.new(0, 2)
 
 listLayout.SortOrder =
     Enum.SortOrder.LayoutOrder
 
-local listPadding =
+local padding =
     Instance.new(
         "UIPadding",
-        listFrame
+        propList
     )
 
-listPadding.PaddingTop =
-    UDim.new(0, 5)
+padding.PaddingTop =
+    UDim.new(0, 4)
 
-listPadding.PaddingLeft =
-    UDim.new(0, 5)
+padding.PaddingLeft =
+    UDim.new(0, 4)
 
-listPadding.PaddingRight =
-    UDim.new(0, 5)
+padding.PaddingRight =
+    UDim.new(0, 4)
 
 --==============================================================
 -- STATE
 --==============================================================
 
-local state = {
+local props = {}
 
-    props = {},
+local slotProps = {}
 
-    slotMap = {},
+local assembled = false
 
-    isAssembled = false,
+local controlling = false
 
-    isControlling = false,
+local robotAnchor = nil
 
-    robotAnchor = nil,
+local connections = {}
 
-    jumpRequested = false,
+local heightScale =
+    CONFIG.HeightDefault
 
-    heightScale =
-        CONFIG.HeightDefault,
-
-    connections = {},
-
-    originalCamType = nil,
-
-    originalWalkSpeed = 16,
-
-    originalJumpPower = 50,
-
-    originalAutoRotate = true,
-}
+local jumpRequest = false
 
 local camera =
     workspace.CurrentCamera
 
+local oldCameraType
+
+local oldCameraSubject
+
+local oldFOV
+
+local oldWalkSpeed
+
+local oldJumpPower
+
+local oldAutoRotate
+
 --==============================================================
--- FOLDER
+-- GET FOLDER
 --==============================================================
 
-local function getFolder()
+local function getPropsFolder()
 
-    local current =
-        workspace
+    local folder1 =
+        workspace:FindFirstChild(
+            CONFIG.Folder1
+        )
 
-    for _, name in ipairs(
-        CONFIG.FolderPath
-    ) do
-
-        current =
-            current:FindFirstChild(name)
-
-        if not current then
-            return nil
-        end
-
+    if not folder1 then
+        return nil
     end
 
-    return current
+    local folder2 =
+        folder1:FindFirstChild(
+            CONFIG.Folder2
+        )
+
+    if not folder2 then
+        return nil
+    end
+
+    return folder2
 end
 
 --==============================================================
--- SORT PROP NUMBER
+-- GET NUMBER
 --==============================================================
 
-local function getPropNumber(name)
+local function getNumber(name)
 
-    -- supports:
-    -- prop_1
-    -- prop1
-    -- 1
-    -- trafficcone_01
-
-    local number =
+    local n =
         string.match(
             name,
             "(%d+)"
         )
 
-    if number then
-        return tonumber(number)
+    if n then
+        return tonumber(n)
     end
 
-    return math.huge
+    return 999999
 end
 
 --==============================================================
--- SCAN PROPS
+-- FIND PROPS
 --==============================================================
 
-local function scanProps()
+local function findProps()
 
     local folder =
-        getFolder()
+        getPropsFolder()
 
     if not folder then
+
+        warn(
+            "[MANI ROBO] Props folder missing"
+        )
+
         return {}
+
     end
 
     local found = {}
 
-    for _, obj in ipairs(
+    for _, object in ipairs(
         folder:GetChildren()
     ) do
 
-        if obj:IsA("BasePart") then
+        if object:IsA("BasePart") then
 
             if string.find(
-                obj.Name,
+                object.Name,
                 player.Name,
                 1,
                 true
@@ -1143,7 +1047,7 @@ local function scanProps()
 
                 table.insert(
                     found,
-                    obj
+                    object
                 )
 
             end
@@ -1154,19 +1058,24 @@ local function scanProps()
 
     table.sort(
         found,
-        function(a,b)
+        function(a, b)
 
-            local na =
-                getPropNumber(a.Name)
+            local aNumber =
+                getNumber(a.Name)
 
-            local nb =
-                getPropNumber(b.Name)
+            local bNumber =
+                getNumber(b.Name)
 
-            if na == nb then
-                return a.Name < b.Name
+            if aNumber ==
+                bNumber then
+
+                return a.Name <
+                    b.Name
+
             end
 
-            return na < nb
+            return aNumber <
+                bNumber
 
         end
     )
@@ -1175,17 +1084,17 @@ local function scanProps()
 end
 
 --==============================================================
--- REFRESH LIST
+-- CLEAR LIST
 --==============================================================
 
-local function refreshList()
+local function clearList()
 
     for _, child in ipairs(
-        listFrame:GetChildren()
+        propList:GetChildren()
     ) do
 
-        if child:IsA("TextLabel")
-            or child:IsA("Frame") then
+        if child:IsA("Frame")
+            or child:IsA("TextLabel") then
 
             child:Destroy()
 
@@ -1193,80 +1102,55 @@ local function refreshList()
 
     end
 
-    propCounter.Text =
-        "ROBOT PARTS   "
-        .. tostring(#state.props)
+end
+
+--==============================================================
+-- UPDATE LIST
+--==============================================================
+
+local function updateList()
+
+    clearList()
+
+    counter.Text =
+        "PROPS  "
+        .. tostring(#props)
         .. " / 15"
 
-    if #state.props == 0 then
+    for i, prop in ipairs(props) do
 
-        local empty =
-            Instance.new(
-                "TextLabel",
-                listFrame
-            )
-
-        empty.Size =
-            UDim2.new(
-                1,
-                -10,
-                0,
-                32
-            )
-
-        empty.BackgroundTransparency = 1
-
-        empty.Text =
-            "No props found"
-
-        empty.Font =
-            Enum.Font.Gotham
-
-        empty.TextSize = 11
-
-        empty.TextColor3 =
-            Color3.fromRGB(
-                140,
-                140,
-                150
-            )
-
-        return
-    end
-
-    for i, prop in ipairs(
-        state.props
-    ) do
-
-        local slot =
-            SPAWN_ORDER[i]
-            or "Extra"
+        if i > CONFIG.MaxProps then
+            break
+        end
 
         local row =
             Instance.new(
                 "Frame",
-                listFrame
+                propList
             )
 
         row.Size =
             UDim2.new(
                 1,
-                -10,
+                -8,
                 0,
-                24
+                21
             )
 
         row.BackgroundColor3 =
             Color3.fromRGB(
-                29,
-                29,
-                37
+                28,
+                28,
+                35
             )
 
         row.BorderSizePixel = 0
 
-        Instance.new("UICorner", row).CornerRadius =
-            UDim.new(0, 6)
+        Instance.new(
+            "UICorner",
+            row
+        ).CornerRadius =
+            UDim.new(0, 5)
 
         local label =
             Instance.new(
@@ -1294,43 +1178,44 @@ local function refreshList()
 
         label.Text =
             string.format(
-                "%02d  %s",
+                "%02d   %s",
                 i,
-                slot
+                ROBOT_ORDER[i]
+                    or "Extra"
             )
 
         label.Font =
             Enum.Font.GothamMedium
 
-        label.TextSize = 9
+        label.TextSize = 8
 
         label.TextColor3 =
             Color3.fromRGB(
-                200,
-                200,
-                210
+                195,
+                195,
+                205
             )
 
         label.TextXAlignment =
             Enum.TextXAlignment.Left
 
-        label.TextTruncate =
-            Enum.TextTruncate.AtEnd
-
     end
 end
 
 --==============================================================
--- SET PROP CFRAME
+-- REMOTE
 --==============================================================
 
-local function setPropCFrame(
+local function setProp(
     prop,
-    cf
+    cframe
 )
 
-    if not prop or not prop.Parent then
+    if not prop
+        or not prop.Parent then
+
         return
+
     end
 
     local remote =
@@ -1339,55 +1224,69 @@ local function setPropCFrame(
         )
 
     if remote
-        and remote:IsA("RemoteFunction") then
+        and remote:IsA(
+            "RemoteFunction"
+        ) then
 
-        pcall(function()
-            remote:InvokeServer(cf)
-        end)
+        local success =
+            pcall(function()
+
+                remote:InvokeServer(
+                    cframe
+                )
+
+            end)
+
+        if not success then
+
+            prop.CFrame =
+                cframe
+
+        end
 
     else
 
-        prop.CFrame = cf
+        prop.CFrame =
+            cframe
 
     end
 end
 
 --==============================================================
--- HEIGHT OFFSET
+-- GET OFFSET
 --==============================================================
 
-local function getScaledOffset(
-    slot
-)
+local function getOffset(index)
 
-    local base =
-        BASE_OFFSETS[slot]
+    local offset =
+        OFFSETS[index]
 
-    if not base then
+    if not offset then
         return Vector3.zero
     end
 
     return Vector3.new(
 
-        base.X,
+        offset.X,
 
-        base.Y *
-            state.heightScale,
+        offset.Y *
+            heightScale,
 
-        base.Z
+        offset.Z
 
     )
 end
 
 --==============================================================
--- BASE POSITION
+-- GET BASE
 --==============================================================
 
-local function getBasePosition()
+local function getBase()
 
     local position =
         hrp.Position
-        + hrp.CFrame.LookVector * 8
+        + hrp.CFrame.LookVector
+        * 8
 
     return Vector3.new(
 
@@ -1396,61 +1295,64 @@ local function getBasePosition()
         hrp.Position.Y,
 
         position.Z
+
     )
 end
 
 --==============================================================
--- RESCAN
+-- SCAN BUTTON
 --==============================================================
 
-spawnBtn.MouseButton1Click:Connect(function()
-
-    status.Text =
-        "●  Scanning props..."
-
-    status.TextColor3 =
-        Color3.fromRGB(
-            255,
-            200,
-            100
-        )
-
-    task.wait(0.1)
-
-    state.props =
-        scanProps()
-
-    refreshList()
-
-    if #state.props == 0 then
+scanButton.MouseButton1Click:Connect(
+    function()
 
         status.Text =
-            "●  No props found"
+            "●  SCANNING..."
 
         status.TextColor3 =
             Color3.fromRGB(
                 255,
-                100,
+                195,
                 100
             )
 
-    else
+        task.wait(0.15)
 
-        status.Text =
-            "●  Found "
-            .. #state.props
-            .. " props"
+        props =
+            findProps()
 
-        status.TextColor3 =
-            Color3.fromRGB(
-                120,
-                255,
-                165
-            )
+        updateList()
+
+        if #props == 0 then
+
+            status.Text =
+                "●  NO PROPS FOUND"
+
+            status.TextColor3 =
+                Color3.fromRGB(
+                    255,
+                    100,
+                    100
+                )
+
+        else
+
+            status.Text =
+                "●  FOUND "
+                .. #props
+                .. " PROPS"
+
+            status.TextColor3 =
+                Color3.fromRGB(
+                    120,
+                    255,
+                    165
+                )
+
+        end
 
     end
-
-end)
+)
 
 --==============================================================
 -- ASSEMBLE
@@ -1458,19 +1360,27 @@ end)
 
 local function assembleRobot()
 
-    if #state.props == 0 then
+    if controlling then
 
-        state.props =
-            scanProps()
+        status.Text =
+            "●  STOP CONTROL FIRST"
 
-        refreshList()
+        return
+    end
+
+    if #props == 0 then
+
+        props =
+            findProps()
+
+        updateList()
 
     end
 
-    if #state.props == 0 then
+    if #props == 0 then
 
         status.Text =
-            "●  No props available"
+            "●  NO PROPS"
 
         status.TextColor3 =
             Color3.fromRGB(
@@ -1483,7 +1393,7 @@ local function assembleRobot()
     end
 
     status.Text =
-        "●  Assembling robot..."
+        "●  ASSEMBLING..."
 
     status.TextColor3 =
         Color3.fromRGB(
@@ -1492,43 +1402,41 @@ local function assembleRobot()
             80
         )
 
-    state.slotMap = {}
+    slotProps = {}
 
     local base =
-        getBasePosition()
+        getBase()
 
-    for i, prop in ipairs(
-        state.props
-    ) do
+    for i = 1,
+        math.min(
+            #props,
+            CONFIG.MaxProps
+        ) do
 
-        local slot =
-            SPAWN_ORDER[i]
+        local prop =
+            props[i]
 
-        if slot then
+        local offset =
+            getOffset(i)
 
-            local offset =
-                getScaledOffset(slot)
-
-            local cf =
-                CFrame.new(
-                    base + offset
-                )
-
-            setPropCFrame(
-                prop,
-                cf
+        local cf =
+            CFrame.new(
+                base + offset
             )
 
-            state.slotMap[slot] =
-                prop
+        setProp(
+            prop,
+            cf
+        )
 
-        end
+        slotProps[i] =
+            prop
 
-        task.wait(0.06)
+        task.wait(0.10)
 
     end
 
-    state.isAssembled = true
+    assembled = true
 
     status.Text =
         "●  ROBOT ASSEMBLED"
@@ -1542,172 +1450,133 @@ local function assembleRobot()
 
 end
 
-assembleBtn.MouseButton1Click:Connect(function()
-
-    if state.isControlling then
-
-        status.Text =
-            "●  Stop control first"
-
-        status.TextColor3 =
-            Color3.fromRGB(
-                255,
-                190,
-                80
-            )
-
-        return
-    end
-
-    assembleRobot()
-
-end)
+assembleButton.MouseButton1Click:Connect(
+    assembleRobot
+)
 
 --==============================================================
 -- HEIGHT
 --==============================================================
 
-local function updateHeight()
+local function updateHeightText()
 
     heightValue.Text =
         string.format(
             "%.2fx",
-            state.heightScale
+            heightScale
         )
+
 end
 
-local function rebuildHeight()
+plus.MouseButton1Click:Connect(
+    function()
 
-    if not state.isAssembled then
-        return
-    end
-
-    if state.isControlling then
-        return
-    end
-
-    local waist =
-        state.slotMap.Waist
-
-    if not waist then
-        return
-    end
-
-    local baseY =
-        waist.Position.Y
-        - (
-            BASE_OFFSETS.Waist.Y
-            * state.heightScale
-        )
-
-    local sum =
-        Vector3.zero
-
-    local count = 0
-
-    for _, prop in pairs(
-        state.slotMap
-    ) do
-
-        if prop
-            and prop.Parent then
-
-            sum += prop.Position
-            count += 1
-
+        if controlling then
+            return
         end
 
-    end
+        heightScale =
+            math.min(
+                heightScale
+                    + CONFIG.HeightStep,
 
-    if count == 0 then
-        return
-    end
-
-    local center =
-        sum / count
-
-    local base =
-        Vector3.new(
-            center.X,
-            baseY,
-            center.Z
-        )
-
-    for slot, prop in pairs(
-        state.slotMap
-    ) do
-
-        if prop
-            and prop.Parent then
-
-            local offset =
-                getScaledOffset(slot)
-
-            setPropCFrame(
-                prop,
-                CFrame.new(
-                    base + offset
-                )
+                CONFIG.HeightMax
             )
 
+        updateHeightText()
+
+        status.Text =
+            "●  HEIGHT "
+            .. string.format(
+                "%.2fx",
+                heightScale
+            )
+
+        if assembled then
+
+            local center =
+                Vector3.zero
+
+            local count = 0
+
+            for _, prop in pairs(
+                slotProps
+            ) do
+
+                if prop
+                    and prop.Parent then
+
+                    center +=
+                        prop.Position
+
+                    count += 1
+
+                end
+
+            end
+
+            if count > 0 then
+
+                center /=
+                    count
+
+                for i, prop in pairs(
+                    slotProps
+                ) do
+
+                    if prop
+                        and prop.Parent then
+
+                        setProp(
+
+                            prop,
+
+                            CFrame.new(
+                                center
+                                + getOffset(i)
+                            )
+
+                        )
+
+                    end
+
+                end
+
+            end
+
         end
 
     end
-end
+)
 
-plusBtn.MouseButton1Click:Connect(function()
+minus.MouseButton1Click:Connect(
+    function()
 
-    if state.isControlling then
-        return
+        if controlling then
+            return
+        end
+
+        heightScale =
+            math.max(
+                heightScale
+                    - CONFIG.HeightStep,
+
+                CONFIG.HeightMin
+            )
+
+        updateHeightText()
+
+        status.Text =
+            "●  HEIGHT "
+            .. string.format(
+                "%.2fx",
+                heightScale
+            )
+
     end
+)
 
-    state.heightScale =
-        math.min(
-            state.heightScale
-            + CONFIG.HeightStep,
-
-            CONFIG.HeightMax
-        )
-
-    updateHeight()
-    rebuildHeight()
-
-    status.Text =
-        "●  Height "
-        .. string.format(
-            "%.2fx",
-            state.heightScale
-        )
-
-end)
-
-minusBtn.MouseButton1Click:Connect(function()
-
-    if state.isControlling then
-        return
-    end
-
-    state.heightScale =
-        math.max(
-            state.heightScale
-            - CONFIG.HeightStep,
-
-            CONFIG.HeightMin
-        )
-
-    updateHeight()
-    rebuildHeight()
-
-    status.Text =
-        "●  Height "
-        .. string.format(
-            "%.2fx",
-            state.heightScale
-        )
-
-end)
-
-updateHeight()
+updateHeightText()
 
 --==============================================================
 -- CLEAR CONNECTIONS
@@ -1716,69 +1585,77 @@ updateHeight()
 local function clearConnections()
 
     for _, connection in ipairs(
-        state.connections
+        connections
     ) do
 
         pcall(function()
+
             connection:Disconnect()
+
         end)
 
     end
 
-    state.connections = {}
+    connections = {}
 
 end
 
 --==============================================================
--- ROBOT CAMERA
+-- UPDATE ROBOT PARTS
 --==============================================================
 
-local function updateRobotCamera()
+local function updateRobotParts(
+    anchorCF,
+    useRemote
+)
 
-    if not state.robotAnchor then
-        return
+    for i, prop in pairs(
+        slotProps
+    ) do
+
+        if prop
+            and prop.Parent then
+
+            local target =
+                anchorCF
+                * CFrame.new(
+                    getOffset(i)
+                )
+
+            -- smooth visual
+
+            prop.CFrame =
+                prop.CFrame:Lerp(
+                    target,
+                    0.35
+                )
+
+            -- server update
+
+            if useRemote then
+
+                setProp(
+                    prop,
+                    target
+                )
+
+            end
+
+        end
+
     end
-
-    local anchor =
-        state.robotAnchor
-
-    local camPosition =
-        anchor.Position
-        - anchor.CFrame.LookVector
-        * CONFIG.CameraDistance
-
-        + Vector3.new(
-            0,
-            CONFIG.CameraHeight,
-            0
-        )
-
-    local lookPosition =
-        anchor.Position
-        + Vector3.new(
-            0,
-            CONFIG.CameraLookHeight
-            * state.heightScale,
-            0
-        )
-
-    camera.CFrame =
-        CFrame.new(
-            camPosition,
-            lookPosition
-        )
 end
 
 --==============================================================
--- START ROBOT CONTROL
+-- START CONTROL
 --==============================================================
 
 local function startControl()
 
-    if not state.isAssembled then
+    if not assembled then
 
         status.Text =
-            "●  Assemble robot first"
+            "●  ASSEMBLE ROBOT FIRST"
 
         status.TextColor3 =
             Color3.fromRGB(
@@ -1790,25 +1667,29 @@ local function startControl()
         return
     end
 
-    if next(state.slotMap) == nil then
+    if #slotProps == 0 then
         return
     end
 
-    -- Calculate robot center
+    --==========================================================
+    -- FIND CENTER
+    --==========================================================
 
-    local sum =
+    local center =
         Vector3.zero
 
     local count = 0
 
     for _, prop in pairs(
-        state.slotMap
+        slotProps
     ) do
 
         if prop
             and prop.Parent then
 
-            sum += prop.Position
+            center +=
+                prop.Position
+
             count += 1
 
         end
@@ -1816,44 +1697,52 @@ local function startControl()
     end
 
     if count == 0 then
-
-        status.Text =
-            "●  Robot parts missing"
-
         return
     end
 
-    local center =
-        sum / count
+    center /=
+        count
 
-    -- STATE
+    --==========================================================
+    -- SAVE PLAYER
+    --==========================================================
 
-    state.isControlling = true
-
-    state.jumpRequested = false
-
-    -- Save player values
-
-    state.originalWalkSpeed =
+    oldWalkSpeed =
         humanoid.WalkSpeed
 
-    state.originalJumpPower =
+    oldJumpPower =
         humanoid.JumpPower
 
-    state.originalAutoRotate =
+    oldAutoRotate =
         humanoid.AutoRotate
 
-    state.originalCamType =
+    oldCameraType =
         camera.CameraType
 
-    -- Player control remains enabled
-    -- so Roblox joystick can provide MoveDirection
+    oldCameraSubject =
+        camera.CameraSubject
+
+    oldFOV =
+        camera.FieldOfView
+
+    --==========================================================
+    -- CONTROL STATE
+    --==========================================================
+
+    controlling = true
+
+    jumpRequest = false
+
+    -- IMPORTANT:
+    -- Keep Humanoid active so Roblox
+    -- mobile joystick continues producing
+    -- MoveDirection.
 
     humanoid.AutoRotate = false
 
-    humanoid.WalkSpeed = 16
-
-    -- Freeze actual player body
+    --==========================================================
+    -- FREEZE PLAYER BODY
+    --==========================================================
 
     hrp.Anchored = true
 
@@ -1861,37 +1750,34 @@ local function startControl()
     -- ROBOT ANCHOR
     --==========================================================
 
-    local anchor =
+    robotAnchor =
         Instance.new("Part")
 
-    anchor.Name =
-        "MANI_RobotAnchor"
+    robotAnchor.Name =
+        "MANI_PUMPKIN_ROBOT_ANCHOR"
 
-    anchor.Size =
+    robotAnchor.Size =
         Vector3.new(
             1,
             1,
             1
         )
 
-    anchor.Transparency = 1
+    robotAnchor.Transparency = 1
 
-    anchor.CanCollide = false
+    robotAnchor.Anchored = true
 
-    anchor.CanTouch = false
+    robotAnchor.CanCollide = false
 
-    anchor.CanQuery = false
+    robotAnchor.CanTouch = false
 
-    anchor.Anchored = true
+    robotAnchor.CanQuery = false
 
-    anchor.CFrame =
+    robotAnchor.CFrame =
         CFrame.new(center)
 
-    anchor.Parent =
+    robotAnchor.Parent =
         workspace
-
-    state.robotAnchor =
-        anchor
 
     --==========================================================
     -- CAMERA
@@ -1902,38 +1788,54 @@ local function startControl()
 
     camera.FieldOfView = 72
 
-    controlBtn.Text =
-        "🛑   STOP CONTROL"
-
-    status.Text =
-        "●  ROBOT CONTROL ACTIVE"
-
-    status.TextColor3 =
-        Color3.fromRGB(
-            120,
-            255,
-            165
-        )
-
     --==========================================================
     -- CAMERA LOOP
     --==========================================================
 
     table.insert(
-        state.connections,
+        connections,
 
         RunService.RenderStepped:Connect(
             function()
 
-                if not state.isControlling then
+                if not controlling then
                     return
                 end
 
-                if not state.robotAnchor then
+                if not robotAnchor
+                    or not robotAnchor.Parent then
+
                     return
+
                 end
 
-                updateRobotCamera()
+                local a =
+                    robotAnchor
+
+                local cameraPosition =
+                    a.Position
+                    - a.CFrame.LookVector
+                    * CONFIG.CameraDistance
+                    + Vector3.new(
+                        0,
+                        CONFIG.CameraHeight,
+                        0
+                    )
+
+                local lookPosition =
+                    a.Position
+                    + Vector3.new(
+                        0,
+                        CONFIG.CameraLookHeight
+                            * heightScale,
+                        0
+                    )
+
+                camera.CFrame =
+                    CFrame.new(
+                        cameraPosition,
+                        lookPosition
+                    )
 
             end
         )
@@ -1943,25 +1845,29 @@ local function startControl()
     -- MOVEMENT LOOP
     --==========================================================
 
+    local lastRemoteUpdate = 0
+
     table.insert(
-        state.connections,
+        connections,
 
         RunService.Heartbeat:Connect(
             function(dt)
 
-                if not state.isControlling then
+                if not controlling then
                     return
                 end
 
-                local anchor =
-                    state.robotAnchor
+                if not robotAnchor
+                    or not robotAnchor.Parent then
 
-                if not anchor
-                    or not anchor.Parent then
                     return
+
                 end
 
+                --================================================
                 -- DEFAULT ROBLOX JOYSTICK
+                --================================================
+
                 local move =
                     humanoid.MoveDirection
 
@@ -1980,37 +1886,39 @@ local function startControl()
 
                     -- smooth rotation
 
-                    local target =
+                    local wantedCF =
                         CFrame.new(
-                            anchor.Position,
-                            anchor.Position
-                            + direction
+                            robotAnchor.Position,
+
+                            robotAnchor.Position
+                                + direction
                         )
 
-                    anchor.CFrame =
-                        anchor.CFrame:Lerp(
-                            target,
+                    robotAnchor.CFrame =
+                        robotAnchor.CFrame:Lerp(
+                            wantedCF,
+
                             math.clamp(
                                 CONFIG.TurnSpeed
-                                * dt,
+                                    * dt,
                                 0,
                                 1
                             )
                         )
 
-                    -- smooth movement
+                    -- movement
 
                     local newPosition =
-                        anchor.Position
+                        robotAnchor.Position
                         + direction
                         * CONFIG.MoveSpeed
                         * dt
 
-                    anchor.CFrame =
+                    robotAnchor.CFrame =
                         CFrame.new(
                             newPosition,
                             newPosition
-                            + direction
+                                + direction
                         )
 
                 end
@@ -2019,73 +1927,79 @@ local function startControl()
                 -- JUMP
                 --================================================
 
-                if state.jumpRequested then
+                if jumpRequest then
 
-                    state.jumpRequested =
-                        false
+                    jumpRequest = false
 
-                    local jumpHeight = 5.5
+                    local start =
+                        robotAnchor.CFrame
 
-                    local startCF =
-                        anchor.CFrame
-
-                    local upCF =
-                        startCF
+                    local jumpUp =
+                        start
                         + Vector3.new(
                             0,
-                            jumpHeight,
+                            CONFIG.JumpHeight,
                             0
                         )
 
                     local upTween =
                         TweenService:Create(
-                            anchor,
+
+                            robotAnchor,
 
                             TweenInfo.new(
-                                0.22,
+                                0.20,
                                 Enum.EasingStyle.Quad,
                                 Enum.EasingDirection.Out
                             ),
 
                             {
                                 CFrame =
-                                    upCF
+                                    jumpUp
                             }
+
                         )
 
                     upTween:Play()
 
                     task.delay(
-                        0.22,
-
+                        0.20,
                         function()
 
-                            if not anchor
-                                or not anchor.Parent then
+                            if not controlling then
                                 return
                             end
 
-                            local downCF =
-                                anchor.CFrame
+                            if not robotAnchor
+                                or not robotAnchor.Parent then
+
+                                return
+
+                            end
+
+                            local down =
+                                robotAnchor.CFrame
                                 - Vector3.new(
                                     0,
-                                    jumpHeight,
+                                    CONFIG.JumpHeight,
                                     0
                                 )
 
                             TweenService:Create(
-                                anchor,
+
+                                robotAnchor,
 
                                 TweenInfo.new(
-                                    0.30,
+                                    0.25,
                                     Enum.EasingStyle.Quad,
                                     Enum.EasingDirection.In
                                 ),
 
                                 {
                                     CFrame =
-                                        downCF
+                                        down
                                 }
+
                             ):Play()
 
                         end
@@ -2094,43 +2008,23 @@ local function startControl()
                 end
 
                 --================================================
-                -- MOVE ALL ROBOT PARTS
+                -- ROBOT PARTS
                 --================================================
 
-                local anchorCF =
-                    anchor.CFrame
+                local sendRemote =
+                    os.clock()
+                    - lastRemoteUpdate
+                    >= 0.08
 
-                for slot, prop in pairs(
-                    state.slotMap
-                ) do
-
-                    if prop
-                        and prop.Parent then
-
-                        local offset =
-                            getScaledOffset(slot)
-
-                        local targetCF =
-                            anchorCF
-                            * CFrame.new(
-                                offset
-                            )
-
-                        -- client visual movement
-
-                        prop.CFrame =
-                            prop.CFrame:Lerp(
-                                targetCF,
-                                math.clamp(
-                                    dt * 22,
-                                    0,
-                                    1
-                                )
-                            )
-
-                    end
-
+                if sendRemote then
+                    lastRemoteUpdate =
+                        os.clock()
                 end
+
+                updateRobotParts(
+                    robotAnchor.CFrame,
+                    sendRemote
+                )
 
             end
         )
@@ -2141,21 +2035,37 @@ local function startControl()
     --==========================================================
 
     table.insert(
-        state.connections,
+        connections,
 
         UserInputService.JumpRequest:Connect(
             function()
 
-                if state.isControlling then
+                if controlling then
 
-                    state.jumpRequested =
-                        true
+                    jumpRequest = true
 
                 end
 
             end
         )
     )
+
+    --==========================================================
+    -- UI
+    --==========================================================
+
+    controlButton.Text =
+        "🛑  STOP ROBOT"
+
+    status.Text =
+        "●  ROBOT CONTROL ACTIVE"
+
+    status.TextColor3 =
+        Color3.fromRGB(
+            120,
+            255,
+            165
+        )
 
 end
 
@@ -2165,53 +2075,59 @@ end
 
 local function stopControl()
 
-    if not state.isControlling then
+    if not controlling then
         return
     end
 
-    state.isControlling = false
+    controlling = false
 
-    state.jumpRequested = false
+    jumpRequest = false
 
     clearConnections()
 
-    if state.robotAnchor then
+    if robotAnchor then
 
-        state.robotAnchor:Destroy()
+        robotAnchor:Destroy()
 
-        state.robotAnchor = nil
+        robotAnchor = nil
 
     end
 
-    -- Restore player
+    -- restore player
 
     humanoid.WalkSpeed =
-        state.originalWalkSpeed
+        oldWalkSpeed
+        or 16
 
     humanoid.JumpPower =
-        state.originalJumpPower
+        oldJumpPower
+        or 50
 
     humanoid.AutoRotate =
-        state.originalAutoRotate
+        oldAutoRotate
+        ~= false
 
     hrp.Anchored = false
 
-    -- Restore camera
+    -- restore camera
 
     camera.CameraType =
-        state.originalCamType
+        oldCameraType
         or Enum.CameraType.Custom
 
     camera.CameraSubject =
-        humanoid
+        oldCameraSubject
+        or humanoid
 
-    camera.FieldOfView = 70
+    camera.FieldOfView =
+        oldFOV
+        or 70
 
-    controlBtn.Text =
-        "🎮   CONTROL ROBOT"
+    controlButton.Text =
+        "🎮  CONTROL ROBOT"
 
     status.Text =
-        "●  Control released"
+        "●  CONTROL STOPPED"
 
     status.TextColor3 =
         Color3.fromRGB(
@@ -2226,106 +2142,119 @@ end
 -- CONTROL BUTTON
 --==============================================================
 
-controlBtn.MouseButton1Click:Connect(function()
+controlButton.MouseButton1Click:Connect(
+    function()
 
-    if state.isControlling then
+        if controlling then
 
-        stopControl()
+            stopControl()
 
-    else
+        else
 
-        startControl()
+            startControl()
+
+        end
 
     end
-
-end)
+)
 
 --==============================================================
 -- RESET
 --==============================================================
 
-resetBtn.MouseButton1Click:Connect(function()
+resetButton.MouseButton1Click:Connect(
+    function()
 
-    if state.isControlling then
-        stopControl()
-    end
+        if controlling then
+            stopControl()
+        end
 
-    state.isAssembled = false
-    state.slotMap = {}
+        assembled = false
 
-    local total =
-        #state.props
+        slotProps = {}
 
-    if total == 0 then
+        if #props == 0 then
 
-        state.props =
-            scanProps()
+            props =
+                findProps()
 
-        refreshList()
-
-        total =
-            #state.props
-
-    end
-
-    if total > 0 then
-
-        local center =
-            hrp.Position
-
-        for i, prop in ipairs(
-            state.props
-        ) do
-
-            local angle =
-                (
-                    2 * math.pi
-                    / total
-                ) * i
-
-            local position =
-                center
-                + Vector3.new(
-                    math.cos(angle)
-                    * CONFIG.ResetRadius,
-
-                    0,
-
-                    math.sin(angle)
-                    * CONFIG.ResetRadius
-                )
-
-            local cf =
-                CFrame.new(
-                    position,
-                    center
-                )
-
-            setPropCFrame(
-                prop,
-                cf
-            )
-
-            task.wait(0.08)
+            updateList()
 
         end
 
+        local total =
+            math.min(
+                #props,
+                CONFIG.MaxProps
+            )
+
+        if total > 0 then
+
+            local center =
+                hrp.Position
+
+            for i = 1, total do
+
+                local prop =
+                    props[i]
+
+                if prop
+                    and prop.Parent then
+
+                    local angle =
+                        (
+                            2 * math.pi
+                            / total
+                        ) * i
+
+                    local position =
+                        center
+                        + Vector3.new(
+
+                            math.cos(angle)
+                                * CONFIG.ResetRadius,
+
+                            0,
+
+                            math.sin(angle)
+                                * CONFIG.ResetRadius
+
+                        )
+
+                    setProp(
+
+                        prop,
+
+                        CFrame.new(
+                            position,
+                            center
+                        )
+
+                    )
+
+                    task.wait(0.10)
+
+                end
+
+            end
+
+        end
+
+        status.Text =
+            "●  RESET COMPLETE"
+
+        status.TextColor3 =
+            Color3.fromRGB(
+                120,
+                255,
+                165
+            )
+
+        controlButton.Text =
+            "🎮  CONTROL ROBOT"
+
     end
-
-    status.Text =
-        "●  Props reset"
-
-    status.TextColor3 =
-        Color3.fromRGB(
-            120,
-            255,
-            165
-        )
-
-    controlBtn.Text =
-        "🎮   CONTROL ROBOT"
-
-end)
+)
 
 --==============================================================
 -- MINIMIZE
@@ -2333,81 +2262,89 @@ end)
 
 local minimized = false
 
-minBtn.MouseButton1Click:Connect(function()
+minButton.MouseButton1Click:Connect(
+    function()
 
-    minimized =
-        not minimized
+        minimized =
+            not minimized
 
-    if minimized then
+        if minimized then
 
-        body.Visible = false
+            body.Visible = false
 
-        minBtn.Text = "+"
+            minButton.Text = "+"
 
-        TweenService:Create(
-            main,
+            TweenService:Create(
 
-            TweenInfo.new(
-                0.20,
-                Enum.EasingStyle.Quad
-            ),
+                main,
 
-            {
-                Size =
-                    UDim2.new(
-                        0,
-                        CONFIG.GuiWidth,
-                        0,
-                        48
-                    )
-            }
-        ):Play()
+                TweenInfo.new(
+                    0.20,
+                    Enum.EasingStyle.Quad
+                ),
 
-    else
+                {
+                    Size =
+                        UDim2.new(
+                            0,
+                            285,
+                            0,
+                            46
+                        )
+                }
 
-        body.Visible = true
+            ):Play()
 
-        minBtn.Text = "—"
+        else
 
-        TweenService:Create(
-            main,
+            body.Visible = true
 
-            TweenInfo.new(
-                0.20,
-                Enum.EasingStyle.Quad
-            ),
+            minButton.Text = "—"
 
-            {
-                Size =
-                    UDim2.new(
-                        0,
-                        CONFIG.GuiWidth,
-                        0,
-                        CONFIG.GuiHeight
-                    )
-            }
-        ):Play()
+            TweenService:Create(
+
+                main,
+
+                TweenInfo.new(
+                    0.20,
+                    Enum.EasingStyle.Quad
+                ),
+
+                {
+                    Size =
+                        UDim2.new(
+                            0,
+                            285,
+                            0,
+                            430
+                        )
+                }
+
+            ):Play()
+
+        end
 
     end
-
-end)
+)
 
 --==============================================================
 -- CLOSE
 --==============================================================
 
-closeBtn.MouseButton1Click:Connect(function()
+closeButton.MouseButton1Click:Connect(
+    function()
 
-    if state.isControlling then
-        stopControl()
+        if controlling then
+            stopControl()
+        end
+
+        gui:Destroy()
+
     end
-
-    gui:Destroy()
-
-end)
+)
 
 --==============================================================
--- FLOATING MOBILE BUTTON
+-- FLOATING BUTTON
 --==============================================================
 
 local floating =
@@ -2416,39 +2353,35 @@ local floating =
         gui
     )
 
-floating.Name =
-    "FloatingButton"
-
 floating.Size =
     UDim2.new(
         0,
-        48,
+        46,
         0,
-        48
+        46
     )
 
 floating.Position =
     UDim2.new(
         1,
-        -62,
+        -60,
         0.55,
         0
     )
 
 floating.BackgroundColor3 =
     Color3.fromRGB(
-        23,
-        23,
-        29
+        22,
+        22,
+        28
     )
 
-floating.Text =
-    "🎃"
+floating.Text = "🎃"
 
 floating.Font =
     Enum.Font.GothamBold
 
-floating.TextSize = 20
+floating.TextSize = 19
 
 floating.TextColor3 =
     Color3.fromRGB(
@@ -2465,35 +2398,32 @@ Instance.new(
     "UICorner",
     floating
 ).CornerRadius =
-    UDim.new(
-        0,
-        24
-    )
+    UDim.new(0, 23)
 
-local floatingStroke =
+local floatStroke =
     Instance.new(
         "UIStroke",
         floating
     )
 
-floatingStroke.Color =
+floatStroke.Color =
     Color3.fromRGB(
         255,
         140,
         35
     )
 
-floatingStroke.Thickness = 1.4
-
-floatingStroke.Transparency = 0.25
+floatStroke.Thickness = 1.3
 
 --==============================================================
--- FLOATING BUTTON DRAG
+-- FLOATING DRAG
 --==============================================================
 
-local floatingDragging = false
-local floatingStart
-local floatingPosition
+local floatDragging = false
+
+local floatStart
+
+local floatPosition
 
 floating.InputBegan:Connect(
     function(input)
@@ -2503,26 +2433,13 @@ floating.InputBegan:Connect(
             or input.UserInputType ==
             Enum.UserInputType.Touch then
 
-            floatingDragging = true
+            floatDragging = true
 
-            floatingStart =
+            floatStart =
                 input.Position
 
-            floatingPosition =
+            floatPosition =
                 floating.Position
-
-            input.Changed:Connect(
-                function()
-
-                    if input.UserInputState ==
-                        Enum.UserInputState.End then
-
-                        floatingDragging = false
-
-                    end
-
-                end
-            )
 
         end
 
@@ -2532,7 +2449,7 @@ floating.InputBegan:Connect(
 UserInputService.InputChanged:Connect(
     function(input)
 
-        if not floatingDragging then
+        if not floatDragging then
             return
         end
 
@@ -2543,20 +2460,21 @@ UserInputService.InputChanged:Connect(
 
             local delta =
                 input.Position
-                - floatingStart
+                - floatStart
 
             floating.Position =
                 UDim2.new(
 
-                    floatingPosition.X.Scale,
+                    floatPosition.X.Scale,
 
-                    floatingPosition.X.Offset
-                    + delta.X,
+                    floatPosition.X.Offset
+                        + delta.X,
 
-                    floatingPosition.Y.Scale,
+                    floatPosition.Y.Scale,
 
-                    floatingPosition.Y.Offset
-                    + delta.Y
+                    floatPosition.Y.Offset
+                        + delta.Y
+
                 )
 
         end
@@ -2564,9 +2482,20 @@ UserInputService.InputChanged:Connect(
     end
 )
 
---==============================================================
--- FLOATING BUTTON OPEN/CLOSE
---==============================================================
+UserInputService.InputEnded:Connect(
+    function(input)
+
+        if input.UserInputType ==
+            Enum.UserInputType.MouseButton1
+            or input.UserInputType ==
+            Enum.UserInputType.Touch then
+
+            floatDragging = false
+
+        end
+
+    end
+)
 
 floating.MouseButton1Click:Connect(
     function()
@@ -2578,50 +2507,50 @@ floating.MouseButton1Click:Connect(
 )
 
 --==============================================================
--- CHARACTER RESPAWN
+-- RESPAWN
 --==============================================================
 
 player.CharacterAdded:Connect(
     function(newCharacter)
 
-        if state.isControlling then
+        if controlling then
             stopControl()
         end
 
         task.wait(0.5)
 
-        char =
+        character =
             newCharacter
 
-        hrp =
-            char:WaitForChild(
-                "HumanoidRootPart"
+        humanoid =
+            character:WaitForChild(
+                "Humanoid"
             )
 
-        humanoid =
-            char:WaitForChild(
-                "Humanoid"
+        hrp =
+            character:WaitForChild(
+                "HumanoidRootPart"
             )
 
     end
 )
 
 --==============================================================
--- INITIAL
+-- INITIAL SCAN
 --==============================================================
 
+props =
+    findProps()
+
+updateList()
+
+updateHeightText()
+
 status.Text =
-    "●  READY — RESCAN PROPS"
-
-status.TextColor3 =
-    Color3.fromRGB(
-        120,
-        255,
-        165
-    )
-
-refreshList()
+    "●  READY — "
+    .. tostring(#props)
+    .. " PROPS"
 
 print(
-    "🎃 MANI PUMPKIN ROBO V.1 LOADED"
+    "[MANI PUMPKIN ROBO V.1] LOADED"
 )
