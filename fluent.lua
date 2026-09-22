@@ -1,680 +1,514 @@
---========================================================
--- MANI PROP WING V.2
--- DELTA EXECUTOR
---========================================================
+```lua
+--[[
+=========================================================
+        MANI UNIVERSAL GRAPHICS MOD V.1
+        Client-Side Graphics Enhancement
+        PC + MOBILE
+=========================================================
+]]
 
 repeat task.wait() until game:IsLoaded()
 
---========================================================
--- SERVICES
---========================================================
-
 local Players = game:GetService("Players")
-local UIS = game:GetService("UserInputService")
+local Lighting = game:GetService("Lighting")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
 local Player = Players.LocalPlayer
-
---========================================================
--- GUI PARENT
---========================================================
-
-local function getGuiParent()
-
-    if typeof(gethui) == "function" then
-        local ok, hui = pcall(gethui)
-
-        if ok and hui then
-            return hui
-        end
-    end
-
-    local CoreGui = game:GetService("CoreGui")
-
-    local ok = pcall(function()
-        return CoreGui.Name
-    end)
-
-    if ok then
-        return CoreGui
-    end
-
-    return Player:WaitForChild("PlayerGui")
-end
-
-local GUI_PARENT = getGuiParent()
-
---========================================================
--- REMOVE OLD VERSION
---========================================================
-
-pcall(function()
-
-    local old = GUI_PARENT:FindFirstChild("MANI_PROP_WING_V2")
-
-    if old then
-        old:Destroy()
-    end
-
-end)
+local PlayerGui = Player:WaitForChild("PlayerGui")
 
 --========================================================
 -- CONFIG
 --========================================================
 
-local Config = {
+local GUI_NAME = "MANI_Universal_Graphics_Mod_V1"
 
-    MaxProps = 15,
+-- Remove previous version
+pcall(function()
+    local old = PlayerGui:FindFirstChild(GUI_NAME)
+    if old then
+        old:Destroy()
+    end
+end)
 
-    LeftProps = 6,
-    RightProps = 6,
+--========================================================
+-- EFFECT CLEANUP
+--========================================================
 
-    WingSize = 1.00,
-
-    Spread = 1.00,
-
-    WaistHeight = 0,
-
-    AnimationSpeed = 2.0,
-
-    FlapStrength = 0.75,
-
-    UpdateRate = 0.14,
-
-    BaseDistance = 2.8,
-
-    DistanceStep = 0.95,
-
-    VerticalStep = 0.42,
-
-    BackOffset = -0.7,
+local EFFECT_NAMES = {
+    "MANI_Bloom",
+    "MANI_ColorCorrection",
+    "MANI_Atmosphere",
+    "MANI_SunRays",
+    "MANI_DepthOfField"
 }
 
---========================================================
--- CHARACTER
---========================================================
-
-local Character
-local HRP
-local Humanoid
-
-local function updateCharacter()
-
-    Character = Player.Character
-        or Player.CharacterAdded:Wait()
-
-    HRP = Character:WaitForChild(
-        "HumanoidRootPart",
-        10
-    )
-
-    Humanoid = Character:FindFirstChildOfClass(
-        "Humanoid"
-    )
-
+local function removeEffects()
+    for _, name in ipairs(EFFECT_NAMES) do
+        local obj = Lighting:FindFirstChild(name)
+        if obj then
+            obj:Destroy()
+        end
+    end
 end
 
-updateCharacter()
+removeEffects()
 
-Player.CharacterAdded:Connect(function()
+--========================================================
+-- EFFECT CREATION
+--========================================================
 
-    task.wait(0.8)
+local Bloom = Instance.new("BloomEffect")
+Bloom.Name = "MANI_Bloom"
+Bloom.Parent = Lighting
+Bloom.Enabled = true
+Bloom.Intensity = 0.35
+Bloom.Size = 24
+Bloom.Threshold = 1
 
-    pcall(updateCharacter)
+local ColorCorrection = Instance.new("ColorCorrectionEffect")
+ColorCorrection.Name = "MANI_ColorCorrection"
+ColorCorrection.Parent = Lighting
+ColorCorrection.Enabled = true
+ColorCorrection.Brightness = 0
+ColorCorrection.Contrast = 0.08
+ColorCorrection.Saturation = 0.08
+ColorCorrection.TintColor = Color3.fromRGB(255,255,255)
 
-end)
+local Atmosphere = Instance.new("Atmosphere")
+Atmosphere.Name = "MANI_Atmosphere"
+Atmosphere.Parent = Lighting
+Atmosphere.Density = 0.25
+Atmosphere.Offset = 0.15
+Atmosphere.Color = Color3.fromRGB(199,216,255)
+Atmosphere.Decay = Color3.fromRGB(106,112,125)
+Atmosphere.Glare = 0.05
+Atmosphere.Haze = 0.8
+
+local SunRays = Instance.new("SunRaysEffect")
+SunRays.Name = "MANI_SunRays"
+SunRays.Parent = Lighting
+SunRays.Enabled = true
+SunRays.Intensity = 0.08
+SunRays.Spread = 0.85
+
+local DOF = Instance.new("DepthOfFieldEffect")
+DOF.Name = "MANI_DepthOfField"
+DOF.Parent = Lighting
+DOF.Enabled = false
+DOF.FarIntensity = 0.08
+DOF.FocusDistance = 50
+DOF.InFocusRadius = 35
+DOF.NearIntensity = 0.03
 
 --========================================================
 -- GUI
 --========================================================
 
-local GUI = Instance.new("ScreenGui")
-
-GUI.Name = "MANI_PROP_WING_V2"
-GUI.ResetOnSpawn = false
-GUI.IgnoreGuiInset = true
-GUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-
-GUI.Parent = GUI_PARENT
-
---========================================================
--- MAIN
---========================================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = GUI_NAME
+ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = PlayerGui
 
 local Main = Instance.new("Frame")
-
 Main.Name = "Main"
-
-Main.Size = UDim2.fromOffset(
-    245,
-    300
-)
-
-Main.Position = UDim2.new(
-    0,
-    25,
-    0.5,
-    -150
-)
-
-Main.BackgroundColor3 =
-    Color3.fromRGB(12, 12, 17)
-
+Main.Size = UDim2.fromOffset(390, 510)
+Main.Position = UDim2.new(0.5, -195, 0.5, -255)
+Main.BackgroundColor3 = Color3.fromRGB(12,12,16)
 Main.BorderSizePixel = 0
-
-Main.Parent = GUI
+Main.Parent = ScreenGui
 
 local MainCorner = Instance.new("UICorner")
-
-MainCorner.CornerRadius =
-    UDim.new(0, 13)
-
+MainCorner.CornerRadius = UDim.new(0,16)
 MainCorner.Parent = Main
 
-local MainStroke = Instance.new("UIStroke")
-
-MainStroke.Color =
-    Color3.fromRGB(72, 72, 86)
-
-MainStroke.Transparency = 0.25
-MainStroke.Thickness = 1
-
-MainStroke.Parent = Main
+local Stroke = Instance.new("UIStroke")
+Stroke.Color = Color3.fromRGB(75,75,95)
+Stroke.Thickness = 1
+Stroke.Transparency = 0.35
+Stroke.Parent = Main
 
 --========================================================
 -- HEADER
 --========================================================
 
 local Header = Instance.new("Frame")
-
-Header.Size =
-    UDim2.new(1, 0, 0, 42)
-
-Header.BackgroundColor3 =
-    Color3.fromRGB(21, 21, 28)
-
+Header.Size = UDim2.new(1,0,0,58)
+Header.BackgroundColor3 = Color3.fromRGB(20,20,27)
 Header.BorderSizePixel = 0
-
 Header.Parent = Main
 
 local HeaderCorner = Instance.new("UICorner")
-
-HeaderCorner.CornerRadius =
-    UDim.new(0, 13)
-
+HeaderCorner.CornerRadius = UDim.new(0,16)
 HeaderCorner.Parent = Header
 
-local HeaderFix = Instance.new("Frame")
-
-HeaderFix.Size =
-    UDim2.new(1, 0, 0, 12)
-
-HeaderFix.Position =
-    UDim2.new(0, 0, 1, -12)
-
-HeaderFix.BackgroundColor3 =
-    Color3.fromRGB(21, 21, 28)
-
-HeaderFix.BorderSizePixel = 0
-
-HeaderFix.Parent = Header
-
---========================================================
--- TITLE
---========================================================
-
 local Title = Instance.new("TextLabel")
-
+Title.Size = UDim2.new(1,-105,0,28)
+Title.Position = UDim2.fromOffset(18,7)
 Title.BackgroundTransparency = 1
-
-Title.Position =
-    UDim2.fromOffset(12, 5)
-
-Title.Size =
-    UDim2.new(1, -60, 0, 18)
-
-Title.Text =
-    "MANI PROP WING"
-
-Title.TextColor3 =
-    Color3.fromRGB(245, 245, 250)
-
-Title.TextSize = 13
+Title.Text = "MANI UNIVERSAL"
+Title.TextColor3 = Color3.fromRGB(245,245,255)
 Title.Font = Enum.Font.GothamBold
-
-Title.TextXAlignment =
-    Enum.TextXAlignment.Left
-
+Title.TextSize = 17
+Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = Header
 
-local Version = Instance.new("TextLabel")
+local Subtitle = Instance.new("TextLabel")
+Subtitle.Size = UDim2.new(1,-105,0,18)
+Subtitle.Position = UDim2.fromOffset(18,32)
+Subtitle.BackgroundTransparency = 1
+Subtitle.Text = "GRAPHICS MOD  •  V1.0"
+Subtitle.TextColor3 = Color3.fromRGB(145,145,165)
+Subtitle.Font = Enum.Font.Gotham
+Subtitle.TextSize = 10
+Subtitle.TextXAlignment = Enum.TextXAlignment.Left
+Subtitle.Parent = Header
 
-Version.BackgroundTransparency = 1
-
-Version.Position =
-    UDim2.fromOffset(12, 22)
-
-Version.Size =
-    UDim2.new(1, -60, 0, 12)
-
-Version.Text =
-    "V.2  •  WAIST WING SYSTEM"
-
-Version.TextColor3 =
-    Color3.fromRGB(120, 120, 135)
-
-Version.TextSize = 7
-
-Version.Font =
-    Enum.Font.Gotham
-
-Version.TextXAlignment =
-    Enum.TextXAlignment.Left
-
-Version.Parent = Header
-
---========================================================
--- MINIMIZE
---========================================================
-
-local Min = Instance.new("TextButton")
-
-Min.Size =
-    UDim2.fromOffset(28, 28)
-
-Min.Position =
-    UDim2.new(1, -34, 0, 7)
-
-Min.BackgroundColor3 =
-    Color3.fromRGB(35, 35, 44)
-
-Min.BorderSizePixel = 0
-
-Min.Text = "−"
-
-Min.TextColor3 =
-    Color3.fromRGB(235, 235, 240)
-
-Min.TextSize = 17
-
-Min.Font =
-    Enum.Font.GothamBold
-
-Min.Parent = Header
+local MinButton = Instance.new("TextButton")
+MinButton.Size = UDim2.fromOffset(36,30)
+MinButton.Position = UDim2.new(1,-82,0,14)
+MinButton.BackgroundColor3 = Color3.fromRGB(35,35,45)
+MinButton.Text = "—"
+MinButton.TextColor3 = Color3.fromRGB(235,235,245)
+MinButton.Font = Enum.Font.GothamBold
+MinButton.TextSize = 16
+MinButton.AutoButtonColor = false
+MinButton.Parent = Header
 
 local MinCorner = Instance.new("UICorner")
+MinCorner.CornerRadius = UDim.new(0,8)
+MinCorner.Parent = MinButton
 
-MinCorner.CornerRadius =
-    UDim.new(0, 7)
+local CloseButton = Instance.new("TextButton")
+CloseButton.Size = UDim2.fromOffset(36,30)
+CloseButton.Position = UDim2.new(1,-42,0,14)
+CloseButton.BackgroundColor3 = Color3.fromRGB(55,25,30)
+CloseButton.Text = "×"
+CloseButton.TextColor3 = Color3.fromRGB(255,130,140)
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.TextSize = 19
+CloseButton.AutoButtonColor = false
+CloseButton.Parent = Header
 
-MinCorner.Parent = Min
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0,8)
+CloseCorner.Parent = CloseButton
 
 --========================================================
 -- CONTENT
 --========================================================
 
-local Content = Instance.new("ScrollingFrame")
+local Scroll = Instance.new("ScrollingFrame")
+Scroll.Size = UDim2.new(1,-20,1,-72)
+Scroll.Position = UDim2.fromOffset(10,66)
+Scroll.BackgroundTransparency = 1
+Scroll.BorderSizePixel = 0
+Scroll.ScrollBarThickness = 3
+Scroll.ScrollBarImageColor3 = Color3.fromRGB(100,100,125)
+Scroll.CanvasSize = UDim2.new(0,0,0,0)
+Scroll.Parent = Main
 
-Content.Position =
-    UDim2.fromOffset(9, 48)
+local Layout = Instance.new("UIListLayout")
+Layout.Padding = UDim.new(0,9)
+Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+Layout.Parent = Scroll
 
-Content.Size =
-    UDim2.new(1, -18, 1, -57)
-
-Content.BackgroundTransparency = 1
-
-Content.BorderSizePixel = 0
-
-Content.ScrollBarThickness = 3
-
-Content.ScrollBarImageColor3 =
-    Color3.fromRGB(80, 80, 95)
-
-Content.CanvasSize =
-    UDim2.new(0, 0, 0, 430)
-
-Content.Parent = Main
+local Padding = Instance.new("UIPadding")
+Padding.PaddingBottom = UDim.new(0,15)
+Padding.Parent = Scroll
 
 --========================================================
--- STATUS
+-- HELPERS
 --========================================================
 
-local Status = Instance.new("TextLabel")
+local function makeSection(text)
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1,-6,0,25)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(135,135,160)
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 11
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = Scroll
+    return label
+end
 
-Status.Size =
-    UDim2.new(1, -5, 0, 23)
-
-Status.BackgroundTransparency = 1
-
-Status.Text =
-    "● V2 READY"
-
-Status.TextColor3 =
-    Color3.fromRGB(100, 255, 170)
-
-Status.TextSize = 10
-
-Status.Font =
-    Enum.Font.GothamMedium
-
-Status.TextXAlignment =
-    Enum.TextXAlignment.Left
-
-Status.Parent = Content
-
---========================================================
--- HELPER BUTTON
---========================================================
-
-local function createButton(
-    name,
-    text,
-    x,
-    y,
-    width
-)
-
-    local button =
-        Instance.new("TextButton")
-
-    button.Name = name
-
-    button.Size =
-        UDim2.fromOffset(
-            width or 70,
-            31
-        )
-
-    button.Position =
-        UDim2.fromOffset(x, y)
-
-    button.BackgroundColor3 =
-        Color3.fromRGB(28, 28, 37)
-
+local function makeButton(text, callback)
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(1,-6,0,43)
+    button.BackgroundColor3 = Color3.fromRGB(25,25,33)
     button.BorderSizePixel = 0
-
     button.Text = text
+    button.TextColor3 = Color3.fromRGB(235,235,245)
+    button.Font = Enum.Font.GothamMedium
+    button.TextSize = 12
+    button.AutoButtonColor = false
+    button.Parent = Scroll
 
-    button.TextColor3 =
-        Color3.fromRGB(225, 225, 232)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0,10)
+    corner.Parent = button
 
-    button.TextSize = 9
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(50,50,65)
+    stroke.Transparency = 0.4
+    stroke.Parent = button
 
-    button.Font =
-        Enum.Font.GothamBold
+    button.MouseEnter:Connect(function()
+        TweenService:Create(button,TweenInfo.new(.15),{
+            BackgroundColor3 = Color3.fromRGB(35,35,47)
+        }):Play()
+    end)
 
-    button.Parent = Content
+    button.MouseLeave:Connect(function()
+        TweenService:Create(button,TweenInfo.new(.15),{
+            BackgroundColor3 = Color3.fromRGB(25,25,33)
+        }):Play()
+    end)
 
-    local c = Instance.new("UICorner")
+    button.Activated:Connect(callback)
 
-    c.CornerRadius =
-        UDim.new(0, 7)
+    return button
+end
 
-    c.Parent = button
+local function makeToggle(text, default, callback)
+    local state = default
+
+    local button = makeButton("", function()
+        state = not state
+        callback(state)
+
+        if state then
+            button.Text = text .. "     ON"
+            button.TextColor3 = Color3.fromRGB(150,210,255)
+        else
+            button.Text = text .. "     OFF"
+            button.TextColor3 = Color3.fromRGB(170,170,180)
+        end
+    end)
+
+    if state then
+        button.Text = text .. "     ON"
+        button.TextColor3 = Color3.fromRGB(150,210,255)
+    else
+        button.Text = text .. "     OFF"
+    end
 
     return button
 end
 
 --========================================================
--- VALUE LABEL
+-- PRESETS
 --========================================================
 
-local function createLabel(
-    text,
-    y
-)
+makeSection("GRAPHICS PRESETS")
 
-    local label =
-        Instance.new("TextLabel")
+local function ultra()
+    Bloom.Enabled = true
+    Bloom.Intensity = 0.42
+    Bloom.Size = 32
+    Bloom.Threshold = 0.85
 
-    label.Size =
-        UDim2.new(1, -5, 0, 18)
+    ColorCorrection.Enabled = true
+    ColorCorrection.Brightness = 0.02
+    ColorCorrection.Contrast = 0.16
+    ColorCorrection.Saturation = 0.12
 
-    label.Position =
-        UDim2.fromOffset(0, y)
+    Atmosphere.Enabled = true
+    Atmosphere.Density = 0.22
+    Atmosphere.Haze = 0.7
+    Atmosphere.Glare = 0.08
 
-    label.BackgroundTransparency = 1
+    SunRays.Enabled = true
+    SunRays.Intensity = 0.12
+    SunRays.Spread = 0.9
 
-    label.Text = text
+    DOF.Enabled = false
 
-    label.TextColor3 =
-        Color3.fromRGB(155, 155, 170)
-
-    label.TextSize = 8
-
-    label.Font =
-        Enum.Font.GothamMedium
-
-    label.TextXAlignment =
-        Enum.TextXAlignment.Left
-
-    label.Parent = Content
-
-    return label
+    Lighting.Brightness = 3
+    Lighting.ExposureCompensation = 0.15
+    Lighting.GlobalShadows = true
 end
 
---========================================================
--- WING TOGGLE
---========================================================
+local function cinematic()
+    Bloom.Enabled = true
+    Bloom.Intensity = 0.55
+    Bloom.Size = 28
+    Bloom.Threshold = 0.75
 
-local WingButton =
-    createButton(
-        "WingToggle",
-        "WING  •  OFF",
-        0,
-        28,
-        112
-    )
+    ColorCorrection.Enabled = true
+    ColorCorrection.Brightness = -0.02
+    ColorCorrection.Contrast = 0.2
+    ColorCorrection.Saturation = 0.05
 
-local ResetButton =
-    createButton(
-        "Reset",
-        "RESET",
-        118,
-        28,
-        105
-    )
+    Atmosphere.Enabled = true
+    Atmosphere.Density = 0.28
+    Atmosphere.Haze = 1.1
+    Atmosphere.Glare = 0.1
 
---========================================================
--- SIZE
---========================================================
+    SunRays.Enabled = true
+    SunRays.Intensity = 0.15
 
-local SizeLabel =
-    createLabel(
-        "WING SIZE  •  100%",
-        68
-    )
+    DOF.Enabled = true
+    DOF.FarIntensity = 0.12
+    DOF.NearIntensity = 0.04
 
-local SizeMinus =
-    createButton(
-        "SizeMinus",
-        "−",
-        0,
-        87,
-        48
-    )
+    Lighting.Brightness = 2.5
+    Lighting.ExposureCompensation = 0
+    Lighting.GlobalShadows = true
+end
 
-local SizePlus =
-    createButton(
-        "SizePlus",
-        "+",
-        174,
-        87,
-        48
-    )
+local function natural()
+    Bloom.Enabled = true
+    Bloom.Intensity = 0.18
+    Bloom.Size = 18
+    Bloom.Threshold = 1.1
 
---========================================================
--- SPREAD
---========================================================
+    ColorCorrection.Enabled = true
+    ColorCorrection.Brightness = 0
+    ColorCorrection.Contrast = 0.05
+    ColorCorrection.Saturation = 0.04
 
-local SpreadLabel =
-    createLabel(
-        "SPREAD  •  100%",
-        125
-    )
+    Atmosphere.Enabled = true
+    Atmosphere.Density = 0.18
+    Atmosphere.Haze = 0.5
+    Atmosphere.Glare = 0.03
 
-local SpreadMinus =
-    createButton(
-        "SpreadMinus",
-        "−",
-        0,
-        144,
-        48
-    )
+    SunRays.Enabled = true
+    SunRays.Intensity = 0.05
 
-local SpreadPlus =
-    createButton(
-        "SpreadPlus",
-        "+",
-        174,
-        144,
-        48
-    )
+    DOF.Enabled = false
+
+    Lighting.Brightness = 2
+    Lighting.ExposureCompensation = 0
+    Lighting.GlobalShadows = true
+end
+
+local function performance()
+    Bloom.Enabled = false
+    ColorCorrection.Enabled = true
+    ColorCorrection.Brightness = 0
+    ColorCorrection.Contrast = 0
+    ColorCorrection.Saturation = 0
+
+    Atmosphere.Enabled = false
+    SunRays.Enabled = false
+    DOF.Enabled = false
+
+    Lighting.GlobalShadows = false
+end
+
+makeButton("⚡  ULTRA REALISTIC", ultra)
+makeButton("🎬  CINEMATIC", cinematic)
+makeButton("🌤  NATURAL", natural)
+makeButton("🚀  PERFORMANCE", performance)
 
 --========================================================
--- SPEED
+-- EFFECTS
 --========================================================
 
-local SpeedLabel =
-    createLabel(
-        "ANIMATION SPEED  •  2.0",
-        182
-    )
+makeSection("VISUAL EFFECTS")
 
-local SpeedMinus =
-    createButton(
-        "SpeedMinus",
-        "−",
-        0,
-        201,
-        48
-    )
+makeToggle("Bloom", true, function(v)
+    Bloom.Enabled = v
+end)
 
-local SpeedPlus =
-    createButton(
-        "SpeedPlus",
-        "+",
-        174,
-        201,
-        48
-    )
+makeToggle("Sun Rays", true, function(v)
+    SunRays.Enabled = v
+end)
+
+makeToggle("Atmosphere", true, function(v)
+    Atmosphere.Enabled = v
+end)
+
+makeToggle("Depth Of Field", false, function(v)
+    DOF.Enabled = v
+end)
 
 --========================================================
--- FLAP
+-- RESET
 --========================================================
 
-local FlapLabel =
-    createLabel(
-        "FLAP STRENGTH  •  0.75",
-        239
-    )
+makeSection("SYSTEM")
 
-local FlapMinus =
-    createButton(
-        "FlapMinus",
-        "−",
-        0,
-        258,
-        48
-    )
+makeButton("↻  RESET GRAPHICS", function()
 
-local FlapPlus =
-    createButton(
-        "FlapPlus",
-        "+",
-        174,
-        258,
-        48
-    )
+    Bloom.Enabled = false
+    ColorCorrection.Enabled = false
+    Atmosphere.Enabled = false
+    SunRays.Enabled = false
+    DOF.Enabled = false
 
---========================================================
--- WAIST HEIGHT
---========================================================
+    Lighting.Brightness = 2
+    Lighting.ExposureCompensation = 0
+    Lighting.GlobalShadows = true
 
-local HeightLabel =
-    createLabel(
-        "WAIST HEIGHT  •  0.0",
-        296
-    )
+    task.wait(.15)
 
-local HeightMinus =
-    createButton(
-        "HeightMinus",
-        "DOWN",
-        0,
-        315,
-        72
-    )
+    ultra()
+end)
 
-local HeightPlus =
-    createButton(
-        "HeightPlus",
-        "UP",
-        150,
-        315,
-        72
-    )
+makeButton("✕  REMOVE MOD", function()
+
+    removeEffects()
+
+    pcall(function()
+        ScreenGui:Destroy()
+    end)
+end)
 
 --========================================================
--- DRAG
+-- DRAG SYSTEM
 --========================================================
 
 local dragging = false
 local dragStart
-local startPosition
+local startPos
+
+local function updateDrag(input)
+
+    local delta = input.Position - dragStart
+
+    Main.Position = UDim2.new(
+        startPos.X.Scale,
+        startPos.X.Offset + delta.X,
+        startPos.Y.Scale,
+        startPos.Y.Offset + delta.Y
+    )
+end
 
 Header.InputBegan:Connect(function(input)
 
-    if input.UserInputType ==
-        Enum.UserInputType.MouseButton1
-        or input.UserInputType ==
-        Enum.UserInputType.Touch then
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
 
         dragging = true
+        dragStart = input.Position
+        startPos = Main.Position
 
-        dragStart =
-            input.Position
+        input.Changed:Connect(function()
 
-        startPosition =
-            Main.Position
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
 
+        end)
     end
 end)
 
-UIS.InputChanged:Connect(function(input)
+UserInputService.InputChanged:Connect(function(input)
 
-    if not dragging then
-        return
+    if dragging and (
+        input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch
+    ) then
+        updateDrag(input)
     end
 
-    if input.UserInputType ==
-        Enum.UserInputType.MouseMovement
-        or input.UserInputType ==
-        Enum.UserInputType.Touch then
-
-        local delta =
-            input.Position - dragStart
-
-        Main.Position =
-            UDim2.new(
-                startPosition.X.Scale,
-                startPosition.X.Offset + delta.X,
-
-                startPosition.Y.Scale,
-                startPosition.Y.Offset + delta.Y
-            )
-    end
-end)
-
-UIS.InputEnded:Connect(function(input)
-
-    if input.UserInputType ==
-        Enum.UserInputType.MouseButton1
-        or input.UserInputType ==
-        Enum.UserInputType.Touch then
-
-        dragging = false
-    end
 end)
 
 --========================================================
@@ -683,768 +517,95 @@ end)
 
 local minimized = false
 
-Min.MouseButton1Click:Connect(function()
+MinButton.Activated:Connect(function()
 
     minimized = not minimized
 
     if minimized then
 
-        Content.Visible = false
+        Scroll.Visible = false
 
-        Main.Size =
-            UDim2.fromOffset(
-                245,
-                42
-            )
+        TweenService:Create(
+            Main,
+            TweenInfo.new(.2,Enum.EasingStyle.Quint,Enum.EasingDirection.Out),
+            {Size = UDim2.fromOffset(390,58)}
+        ):Play()
+
+        MinButton.Text = "+"
 
     else
 
-        Content.Visible = true
+        Scroll.Visible = true
 
-        Main.Size =
-            UDim2.fromOffset(
-                245,
-                300
-            )
+        TweenService:Create(
+            Main,
+            TweenInfo.new(.2,Enum.EasingStyle.Quint,Enum.EasingDirection.Out),
+            {Size = UDim2.fromOffset(390,510)}
+        ):Play()
 
+        MinButton.Text = "—"
     end
 end)
 
---========================================================
--- PROP FINDER
---========================================================
-
-local function getPropsFolder()
-
-    local wc =
-        workspace:FindFirstChild(
-            "WorkspaceCom"
-        )
-
-    if not wc then
-        return nil
-    end
-
-    return wc:FindFirstChild(
-        "001_TrafficCones"
-    )
-end
-
-local function getProps()
-
-    local folder =
-        getPropsFolder()
-
-    if not folder then
-        return {}
-    end
-
-    local result = {}
-
-    for _, object in
-        ipairs(folder:GetChildren()) do
-
-        if string.find(
-            object.Name,
-            Player.Name,
-            1,
-            true
-        ) then
-
-            if object:FindFirstChild(
-                "SetCurrentCFrame"
-            ) then
-
-                table.insert(
-                    result,
-                    object
-                )
-            end
-        end
-
-        if #result >= Config.MaxProps then
-            break
-        end
-    end
-
-    table.sort(
-        result,
-        function(a, b)
-            return a.Name < b.Name
-        end
-    )
-
-    return result
-end
-
---========================================================
--- REMOTE
---========================================================
-
-local function moveProp(prop, cf)
-
-    if not prop
-        or not prop.Parent then
-        return
-    end
-
-    local remote =
-        prop:FindFirstChild(
-            "SetCurrentCFrame"
-        )
-
-    if not remote then
-        return
-    end
-
-    pcall(function()
-
-        remote:InvokeServer(cf)
-
-    end)
-end
-
---========================================================
--- WING POSITION
---========================================================
-
-local function getWingPosition(
-    side,
-    index,
-    flap
-)
-
-    if not HRP then
-        return nil
-    end
-
-    local sideSign = side
-
-    local distance =
-        (
-            Config.BaseDistance
-            + ((index - 1)
-            * Config.DistanceStep)
-        )
-        * Config.WingSize
-        * Config.Spread
-
-    local x =
-        sideSign * distance
-
-    local y =
-        Config.WaistHeight
-        + (
-            (index - 1)
-            * Config.VerticalStep
-            * Config.WingSize
-        )
-
-    local z =
-        Config.BackOffset
-        - ((index - 1) * 0.18)
-
-    -- Wing flap
-    y += flap
-
-    -- Waist anchor
-    local waist =
-        HRP.CFrame:PointToWorldSpace(
-            Vector3.new(
-                0,
-                -1.05,
-                0
-            )
-        )
-
-    local position =
-        waist
-        + HRP.CFrame.RightVector * x
-        + HRP.CFrame.UpVector * y
-        + HRP.CFrame.LookVector * z
-
-    return position
-end
-
---========================================================
--- ARRANGE
---========================================================
-
-local function arrange()
-
-    if not HRP then
-
-        Status.Text =
-            "● CHARACTER NOT READY"
-
-        return
-    end
-
-    local props =
-        getProps()
-
-    if #props == 0 then
-
-        Status.Text =
-            "● NO PROPS FOUND"
-
-        Status.TextColor3 =
-            Color3.fromRGB(
-                255,
-                170,
-                80
-            )
-
-        return
-    end
-
-    Status.Text =
-        "● " .. #props .. " PROPS"
-
-    Status.TextColor3 =
-        Color3.fromRGB(
-            100,
-            255,
-            170
-        )
-
-    for i, prop in
-        ipairs(props) do
-
-        local cf
-
-        if i <= 6 then
-
-            local pos =
-                getWingPosition(
-                    -1,
-                    i,
-                    0
-                )
-
-            if pos then
-
-                cf =
-                    CFrame.new(pos)
-                    * HRP.CFrame.Rotation
-
-            end
-
-        elseif i <= 12 then
-
-            local n = i - 6
-
-            local pos =
-                getWingPosition(
-                    1,
-                    n,
-                    0
-                )
-
-            if pos then
-
-                cf =
-                    CFrame.new(pos)
-                    * HRP.CFrame.Rotation
-
-            end
-
-        else
-
-            local n = i - 12
-
-            local pos =
-                HRP.CFrame:PointToWorldSpace(
-                    Vector3.new(
-                        0,
-                        0.8 + n * 0.65,
-                        -3
-                    )
-                )
-
-            cf =
-                CFrame.new(pos)
-                * HRP.CFrame.Rotation
-        end
-
-        if cf then
-            moveProp(prop, cf)
-        end
-
-        task.wait(0.06)
-    end
-
-    Status.Text =
-        "● 6L + 6R + 3 EXTRA"
-
-end
-
---========================================================
--- ANIMATION
---========================================================
-
-local WingEnabled = false
-local AnimationTime = 0
-local LastUpdate = 0
-
-RunService.Heartbeat:Connect(
-    function(dt)
-
-        if not WingEnabled then
-            return
-        end
-
-        if not HRP then
-            return
-        end
-
-        if tick() - LastUpdate
-            < Config.UpdateRate then
-            return
-        end
-
-        LastUpdate = tick()
-
-        AnimationTime +=
-            dt * Config.AnimationSpeed
-
-        local props =
-            getProps()
-
-        for i, prop in
-            ipairs(props) do
-
-            if i <= 12 then
-
-                local side
-                local index
-
-                if i <= 6 then
-
-                    side = -1
-                    index = i
-
-                else
-
-                    side = 1
-                    index = i - 6
-
-                end
-
-                local phase =
-                    AnimationTime
-                    + index * 0.38
-
-                local flap =
-                    math.sin(phase)
-                    * Config.FlapStrength
-
-                local pos =
-                    getWingPosition(
-                        side,
-                        index,
-                        flap
-                    )
-
-                if pos then
-
-                    local tilt =
-                        math.sin(phase)
-                        * Config.FlapStrength
-                        * 14
-
-                    local rotation =
-                        HRP.CFrame.Rotation
-                        * CFrame.Angles(
-                            0,
-                            0,
-                            math.rad(
-                                side * tilt
-                            )
-                        )
-
-                    moveProp(
-                        prop,
-                        CFrame.new(pos)
-                        * rotation
-                    )
-                end
-            end
-        end
-    end
-)
-
---========================================================
--- BUTTON HELPER
---========================================================
-
-local function changeValue(
-    field,
-    amount,
-    min,
-    max
-)
-
-    Config[field] =
-        math.clamp(
-            Config[field] + amount,
-            min,
-            max
-        )
-end
-
---========================================================
--- SIZE CONTROLS
---========================================================
-
-SizeMinus.MouseButton1Click:Connect(
-    function()
-
-        changeValue(
-            "WingSize",
-            -0.10,
-            0.25,
-            2
-        )
-
-        SizeLabel.Text =
-            "WING SIZE  •  "
-            .. math.floor(
-                Config.WingSize * 100
-            )
-            .. "%"
-
-        arrange()
-    end
-)
-
-SizePlus.MouseButton1Click:Connect(
-    function()
-
-        changeValue(
-            "WingSize",
-            0.10,
-            0.25,
-            2
-        )
-
-        SizeLabel.Text =
-            "WING SIZE  •  "
-            .. math.floor(
-                Config.WingSize * 100
-            )
-            .. "%"
-
-        arrange()
-    end
-)
-
---========================================================
--- SPREAD
---========================================================
-
-SpreadMinus.MouseButton1Click:Connect(
-    function()
-
-        changeValue(
-            "Spread",
-            -0.10,
-            0.40,
-            2
-        )
-
-        SpreadLabel.Text =
-            "SPREAD  •  "
-            .. math.floor(
-                Config.Spread * 100
-            )
-            .. "%"
-
-        arrange()
-    end
-)
-
-SpreadPlus.MouseButton1Click:Connect(
-    function()
-
-        changeValue(
-            "Spread",
-            0.10,
-            0.40,
-            2
-        )
-
-        SpreadLabel.Text =
-            "SPREAD  •  "
-            .. math.floor(
-                Config.Spread * 100
-            )
-            .. "%"
-
-        arrange()
-    end
-)
-
---========================================================
--- SPEED
---========================================================
-
-SpeedMinus.MouseButton1Click:Connect(
-    function()
-
-        changeValue(
-            "AnimationSpeed",
-            -0.25,
-            0.2,
-            5
-        )
-
-        SpeedLabel.Text =
-            "ANIMATION SPEED  •  "
-            .. string.format(
-                "%.2f",
-                Config.AnimationSpeed
-            )
-
-    end
-)
-
-SpeedPlus.MouseButton1Click:Connect(
-    function()
-
-        changeValue(
-            "AnimationSpeed",
-            0.25,
-            0.2,
-            5
-        )
-
-        SpeedLabel.Text =
-            "ANIMATION SPEED  •  "
-            .. string.format(
-                "%.2f",
-                Config.AnimationSpeed
-            )
-
-    end
-)
-
---========================================================
--- FLAP
---========================================================
-
-FlapMinus.MouseButton1Click:Connect(
-    function()
-
-        changeValue(
-            "FlapStrength",
-            -0.15,
-            0,
-            2.5
-        )
-
-        FlapLabel.Text =
-            "FLAP STRENGTH  •  "
-            .. string.format(
-                "%.2f",
-                Config.FlapStrength
-            )
-
-    end
-)
-
-FlapPlus.MouseButton1Click:Connect(
-    function()
-
-        changeValue(
-            "FlapStrength",
-            0.15,
-            0,
-            2.5
-        )
-
-        FlapLabel.Text =
-            "FLAP STRENGTH  •  "
-            .. string.format(
-                "%.2f",
-                Config.FlapStrength
-            )
-
-    end
-)
-
---========================================================
--- WAIST HEIGHT
---========================================================
-
-HeightMinus.MouseButton1Click:Connect(
-    function()
-
-        changeValue(
-            "WaistHeight",
-            -0.25,
-            -3,
-            3
-        )
-
-        HeightLabel.Text =
-            "WAIST HEIGHT  •  "
-            .. string.format(
-                "%.2f",
-                Config.WaistHeight
-            )
-
-        arrange()
-    end
-)
-
-HeightPlus.MouseButton1Click:Connect(
-    function()
-
-        changeValue(
-            "WaistHeight",
-            0.25,
-            -3,
-            3
-        )
-
-        HeightLabel.Text =
-            "WAIST HEIGHT  •  "
-            .. string.format(
-                "%.2f",
-                Config.WaistHeight
-            )
-
-        arrange()
-    end
-)
-
---========================================================
--- WING TOGGLE
---========================================================
-
-WingButton.MouseButton1Click:Connect(
-    function()
-
-        WingEnabled =
-            not WingEnabled
-
-        if WingEnabled then
-
-            WingButton.Text =
-                "WING  •  ON"
-
-            WingButton.BackgroundColor3 =
-                Color3.fromRGB(
-                    35,
-                    75,
-                    58
-                )
-
-            WingButton.TextColor3 =
-                Color3.fromRGB(
-                    130,
-                    255,
-                    190
-                )
-
-            Status.Text =
-                "● WING ANIMATION ON"
-
-        else
-
-            WingButton.Text =
-                "WING  •  OFF"
-
-            WingButton.BackgroundColor3 =
-                Color3.fromRGB(
-                    28,
-                    28,
-                    37
-                )
-
-            WingButton.TextColor3 =
-                Color3.fromRGB(
-                    225,
-                    225,
-                    232
-                )
-
-            Status.Text =
-                "● WING ANIMATION OFF"
-        end
-    end
-)
-
---========================================================
--- RESET
---========================================================
-
-ResetButton.MouseButton1Click:Connect(
-    function()
-
-        Config.WingSize = 1
-        Config.Spread = 1
-        Config.WaistHeight = 0
-        Config.AnimationSpeed = 2
-        Config.FlapStrength = 0.75
-
-        SizeLabel.Text =
-            "WING SIZE  •  100%"
-
-        SpreadLabel.Text =
-            "SPREAD  •  100%"
-
-        SpeedLabel.Text =
-            "ANIMATION SPEED  •  2.0"
-
-        FlapLabel.Text =
-            "FLAP STRENGTH  •  0.75"
-
-        HeightLabel.Text =
-            "WAIST HEIGHT  •  0.0"
-
-        arrange()
-
-    end
-)
-
---========================================================
--- INITIALIZE
---========================================================
-
-Status.Text =
-    "● MANI WING V2 LOADED"
-
-Status.TextColor3 =
-    Color3.fromRGB(
-        100,
-        255,
-        170
-    )
-
-task.wait(0.5)
-
-task.spawn(function()
-    arrange()
+CloseButton.Activated:Connect(function()
+    removeEffects()
+    ScreenGui:Destroy()
 end)
 
-print(
-    "======================================"
-)
+--========================================================
+-- RESPONSIVE MOBILE SCALE
+--========================================================
 
-print(
-    " MANI PROP WING V.2"
-)
+local function resizeGUI()
 
-print(
-    " WAIST WING SYSTEM"
-)
+    local camera = workspace.CurrentCamera
+    if not camera then return end
 
-print(
-    " 6 LEFT / 6 RIGHT / 3 EXTRA"
-)
+    local viewport = camera.ViewportSize
 
-print(
-    "======================================"
-)
+    if viewport.X < 500 then
+        Main.Size = UDim2.new(0.88,0,0,470)
+        Main.Position = UDim2.new(0.06,0,0.5,-235)
+    else
+        Main.Size = UDim2.fromOffset(390,510)
+        Main.Position = UDim2.new(0.5,-195,0.5,-255)
+    end
+end
+
+resizeGUI()
+
+if workspace.CurrentCamera then
+    workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(resizeGUI)
+end
+
+--========================================================
+-- INITIAL PRESET
+--========================================================
+
+ultra()
+
+--========================================================
+-- UPDATE CANVAS
+--========================================================
+
+task.defer(function()
+    task.wait()
+    Scroll.CanvasSize = UDim2.new(
+        0,
+        0,
+        0,
+        Layout.AbsoluteContentSize.Y + 20
+    )
+end)
+
+Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    Scroll.CanvasSize = UDim2.new(
+        0,
+        0,
+        0,
+        Layout.AbsoluteContentSize.Y + 20
+    )
+end)
+
+print("MANI UNIVERSAL GRAPHICS MOD V.1 LOADED")
+```
