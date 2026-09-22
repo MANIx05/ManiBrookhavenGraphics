@@ -1,11 +1,9 @@
 ```lua
---[[
-=========================================================
-        MANI UNIVERSAL GRAPHICS MOD V.1
-        Client-Side Graphics Enhancement
-        PC + MOBILE
-=========================================================
-]]
+--========================================================
+-- MANI UNIVERSAL GRAPHICS MOD V1.1
+-- FIXED GUI LOADER
+-- PC + MOBILE
+--========================================================
 
 repeat task.wait() until game:IsLoaded()
 
@@ -13,141 +11,198 @@ local Players = game:GetService("Players")
 local Lighting = game:GetService("Lighting")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
 
 local Player = Players.LocalPlayer
-local PlayerGui = Player:WaitForChild("PlayerGui")
 
 --========================================================
--- CONFIG
+-- SAFE GUI PARENT
 --========================================================
 
-local GUI_NAME = "MANI_Universal_Graphics_Mod_V1"
+local function GetGuiParent()
 
--- Remove previous version
+    -- Delta / common executors
+    if typeof(gethui) == "function" then
+        local ok, hui = pcall(gethui)
+        if ok and hui then
+            return hui
+        end
+    end
+
+    -- Roblox CoreGui fallback
+    local ok, core = pcall(function()
+        return game:GetService("CoreGui")
+    end)
+
+    if ok and core then
+        return core
+    end
+
+    -- Normal Roblox fallback
+    return Player:WaitForChild("PlayerGui")
+end
+
+local GuiParent = GetGuiParent()
+
+--========================================================
+-- REMOVE OLD VERSION
+--========================================================
+
 pcall(function()
-    local old = PlayerGui:FindFirstChild(GUI_NAME)
+    local old = GuiParent:FindFirstChild("MANI_GRAPHICS_V11")
     if old then
         old:Destroy()
     end
 end)
 
 --========================================================
--- EFFECT CLEANUP
---========================================================
-
-local EFFECT_NAMES = {
-    "MANI_Bloom",
-    "MANI_ColorCorrection",
-    "MANI_Atmosphere",
-    "MANI_SunRays",
-    "MANI_DepthOfField"
-}
-
-local function removeEffects()
-    for _, name in ipairs(EFFECT_NAMES) do
-        local obj = Lighting:FindFirstChild(name)
-        if obj then
-            obj:Destroy()
-        end
-    end
-end
-
-removeEffects()
-
---========================================================
--- EFFECT CREATION
---========================================================
-
-local Bloom = Instance.new("BloomEffect")
-Bloom.Name = "MANI_Bloom"
-Bloom.Parent = Lighting
-Bloom.Enabled = true
-Bloom.Intensity = 0.35
-Bloom.Size = 24
-Bloom.Threshold = 1
-
-local ColorCorrection = Instance.new("ColorCorrectionEffect")
-ColorCorrection.Name = "MANI_ColorCorrection"
-ColorCorrection.Parent = Lighting
-ColorCorrection.Enabled = true
-ColorCorrection.Brightness = 0
-ColorCorrection.Contrast = 0.08
-ColorCorrection.Saturation = 0.08
-ColorCorrection.TintColor = Color3.fromRGB(255,255,255)
-
-local Atmosphere = Instance.new("Atmosphere")
-Atmosphere.Name = "MANI_Atmosphere"
-Atmosphere.Parent = Lighting
-Atmosphere.Density = 0.25
-Atmosphere.Offset = 0.15
-Atmosphere.Color = Color3.fromRGB(199,216,255)
-Atmosphere.Decay = Color3.fromRGB(106,112,125)
-Atmosphere.Glare = 0.05
-Atmosphere.Haze = 0.8
-
-local SunRays = Instance.new("SunRaysEffect")
-SunRays.Name = "MANI_SunRays"
-SunRays.Parent = Lighting
-SunRays.Enabled = true
-SunRays.Intensity = 0.08
-SunRays.Spread = 0.85
-
-local DOF = Instance.new("DepthOfFieldEffect")
-DOF.Name = "MANI_DepthOfField"
-DOF.Parent = Lighting
-DOF.Enabled = false
-DOF.FarIntensity = 0.08
-DOF.FocusDistance = 50
-DOF.InFocusRadius = 35
-DOF.NearIntensity = 0.03
-
---========================================================
 -- GUI
 --========================================================
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = GUI_NAME
+ScreenGui.Name = "MANI_GRAPHICS_V11"
 ScreenGui.ResetOnSpawn = false
-ScreenGui.IgnoreGuiInset = true
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.Parent = PlayerGui
+ScreenGui.IgnoreGuiInset = true
+
+local parentOK = pcall(function()
+    ScreenGui.Parent = GuiParent
+end)
+
+if not parentOK then
+    ScreenGui.Parent = Player:WaitForChild("PlayerGui")
+end
+
+--========================================================
+-- LOADING
+--========================================================
+
+local Loading = Instance.new("TextLabel")
+Loading.Size = UDim2.fromOffset(300,60)
+Loading.Position = UDim2.new(.5,-150,.5,-30)
+Loading.BackgroundColor3 = Color3.fromRGB(15,15,20)
+Loading.Text = "MANI GRAPHICS\nLOADING..."
+Loading.TextColor3 = Color3.fromRGB(170,200,255)
+Loading.TextSize = 15
+Loading.Font = Enum.Font.GothamBold
+Loading.BorderSizePixel = 0
+Loading.ZIndex = 999
+Loading.Parent = ScreenGui
+
+local LC = Instance.new("UICorner")
+LC.CornerRadius = UDim.new(0,12)
+LC.Parent = Loading
+
+task.wait(.5)
+
+pcall(function()
+    Loading:Destroy()
+end)
+
+--========================================================
+-- EFFECT CLEANUP
+--========================================================
+
+local function DeleteEffect(name)
+    pcall(function()
+        local obj = Lighting:FindFirstChild(name)
+        if obj then
+            obj:Destroy()
+        end
+    end)
+end
+
+DeleteEffect("MANI_Bloom")
+DeleteEffect("MANI_Color")
+DeleteEffect("MANI_Atmosphere")
+DeleteEffect("MANI_SunRays")
+DeleteEffect("MANI_DOF")
+
+--========================================================
+-- CREATE EFFECTS
+--========================================================
+
+local Bloom = Instance.new("BloomEffect")
+Bloom.Name = "MANI_Bloom"
+Bloom.Intensity = .4
+Bloom.Size = 24
+Bloom.Threshold = .9
+Bloom.Enabled = true
+Bloom.Parent = Lighting
+
+local Color = Instance.new("ColorCorrectionEffect")
+Color.Name = "MANI_Color"
+Color.Brightness = .02
+Color.Contrast = .12
+Color.Saturation = .12
+Color.Enabled = true
+Color.Parent = Lighting
+
+local Atmosphere = Instance.new("Atmosphere")
+Atmosphere.Name = "MANI_Atmosphere"
+Atmosphere.Density = .22
+Atmosphere.Offset = .1
+Atmosphere.Haze = .7
+Atmosphere.Glare = .05
+Atmosphere.Color = Color3.fromRGB(200,215,255)
+Atmosphere.Decay = Color3.fromRGB(100,105,120)
+Atmosphere.Enabled = true
+Atmosphere.Parent = Lighting
+
+local SunRays = Instance.new("SunRaysEffect")
+SunRays.Name = "MANI_SunRays"
+SunRays.Intensity = .1
+SunRays.Spread = .85
+SunRays.Enabled = true
+SunRays.Parent = Lighting
+
+local DOF = Instance.new("DepthOfFieldEffect")
+DOF.Name = "MANI_DOF"
+DOF.FarIntensity = .1
+DOF.NearIntensity = .03
+DOF.FocusDistance = 50
+DOF.InFocusRadius = 30
+DOF.Enabled = false
+DOF.Parent = Lighting
+
+--========================================================
+-- MAIN GUI
+--========================================================
 
 local Main = Instance.new("Frame")
 Main.Name = "Main"
-Main.Size = UDim2.fromOffset(390, 510)
-Main.Position = UDim2.new(0.5, -195, 0.5, -255)
-Main.BackgroundColor3 = Color3.fromRGB(12,12,16)
+Main.Size = UDim2.fromOffset(380,480)
+Main.Position = UDim2.new(.5,-190,.5,-240)
+Main.BackgroundColor3 = Color3.fromRGB(12,12,17)
 Main.BorderSizePixel = 0
 Main.Parent = ScreenGui
 
-local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0,16)
-MainCorner.Parent = Main
+local Corner = Instance.new("UICorner")
+Corner.CornerRadius = UDim.new(0,15)
+Corner.Parent = Main
 
-local Stroke = Instance.new("UIStroke")
-Stroke.Color = Color3.fromRGB(75,75,95)
-Stroke.Thickness = 1
-Stroke.Transparency = 0.35
-Stroke.Parent = Main
+local Border = Instance.new("UIStroke")
+Border.Color = Color3.fromRGB(70,70,90)
+Border.Thickness = 1
+Border.Transparency = .25
+Border.Parent = Main
 
 --========================================================
 -- HEADER
 --========================================================
 
 local Header = Instance.new("Frame")
-Header.Size = UDim2.new(1,0,0,58)
-Header.BackgroundColor3 = Color3.fromRGB(20,20,27)
+Header.Size = UDim2.new(1,0,0,60)
+Header.BackgroundColor3 = Color3.fromRGB(20,20,28)
 Header.BorderSizePixel = 0
 Header.Parent = Main
 
-local HeaderCorner = Instance.new("UICorner")
-HeaderCorner.CornerRadius = UDim.new(0,16)
-HeaderCorner.Parent = Header
+local HCorner = Instance.new("UICorner")
+HCorner.CornerRadius = UDim.new(0,15)
+HCorner.Parent = Header
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1,-105,0,28)
-Title.Position = UDim2.fromOffset(18,7)
+Title.Size = UDim2.new(1,-120,0,27)
+Title.Position = UDim2.fromOffset(17,7)
 Title.BackgroundTransparency = 1
 Title.Text = "MANI UNIVERSAL"
 Title.TextColor3 = Color3.fromRGB(245,245,255)
@@ -156,330 +211,311 @@ Title.TextSize = 17
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = Header
 
-local Subtitle = Instance.new("TextLabel")
-Subtitle.Size = UDim2.new(1,-105,0,18)
-Subtitle.Position = UDim2.fromOffset(18,32)
-Subtitle.BackgroundTransparency = 1
-Subtitle.Text = "GRAPHICS MOD  •  V1.0"
-Subtitle.TextColor3 = Color3.fromRGB(145,145,165)
-Subtitle.Font = Enum.Font.Gotham
-Subtitle.TextSize = 10
-Subtitle.TextXAlignment = Enum.TextXAlignment.Left
-Subtitle.Parent = Header
+local Sub = Instance.new("TextLabel")
+Sub.Size = UDim2.new(1,-120,0,18)
+Sub.Position = UDim2.fromOffset(17,34)
+Sub.BackgroundTransparency = 1
+Sub.Text = "GRAPHICS MOD  •  V1.1"
+Sub.TextColor3 = Color3.fromRGB(135,135,155)
+Sub.Font = Enum.Font.Gotham
+Sub.TextSize = 10
+Sub.TextXAlignment = Enum.TextXAlignment.Left
+Sub.Parent = Header
 
-local MinButton = Instance.new("TextButton")
-MinButton.Size = UDim2.fromOffset(36,30)
-MinButton.Position = UDim2.new(1,-82,0,14)
-MinButton.BackgroundColor3 = Color3.fromRGB(35,35,45)
-MinButton.Text = "—"
-MinButton.TextColor3 = Color3.fromRGB(235,235,245)
-MinButton.Font = Enum.Font.GothamBold
-MinButton.TextSize = 16
-MinButton.AutoButtonColor = false
-MinButton.Parent = Header
+local Min = Instance.new("TextButton")
+Min.Size = UDim2.fromOffset(34,30)
+Min.Position = UDim2.new(1,-78,0,15)
+Min.BackgroundColor3 = Color3.fromRGB(35,35,45)
+Min.Text = "—"
+Min.TextColor3 = Color3.fromRGB(255,255,255)
+Min.TextSize = 16
+Min.Font = Enum.Font.GothamBold
+Min.BorderSizePixel = 0
+Min.Parent = Header
 
-local MinCorner = Instance.new("UICorner")
-MinCorner.CornerRadius = UDim.new(0,8)
-MinCorner.Parent = MinButton
+local MC = Instance.new("UICorner")
+MC.CornerRadius = UDim.new(0,8)
+MC.Parent = Min
 
-local CloseButton = Instance.new("TextButton")
-CloseButton.Size = UDim2.fromOffset(36,30)
-CloseButton.Position = UDim2.new(1,-42,0,14)
-CloseButton.BackgroundColor3 = Color3.fromRGB(55,25,30)
-CloseButton.Text = "×"
-CloseButton.TextColor3 = Color3.fromRGB(255,130,140)
-CloseButton.Font = Enum.Font.GothamBold
-CloseButton.TextSize = 19
-CloseButton.AutoButtonColor = false
-CloseButton.Parent = Header
+local Close = Instance.new("TextButton")
+Close.Size = UDim2.fromOffset(34,30)
+Close.Position = UDim2.new(1,-40,0,15)
+Close.BackgroundColor3 = Color3.fromRGB(55,25,30)
+Close.Text = "X"
+Close.TextColor3 = Color3.fromRGB(255,120,130)
+Close.TextSize = 14
+Close.Font = Enum.Font.GothamBold
+Close.BorderSizePixel = 0
+Close.Parent = Header
 
-local CloseCorner = Instance.new("UICorner")
-CloseCorner.CornerRadius = UDim.new(0,8)
-CloseCorner.Parent = CloseButton
+local CC = Instance.new("UICorner")
+CC.CornerRadius = UDim.new(0,8)
+CC.Parent = Close
 
 --========================================================
--- CONTENT
+-- SCROLL
 --========================================================
 
 local Scroll = Instance.new("ScrollingFrame")
 Scroll.Size = UDim2.new(1,-20,1,-72)
-Scroll.Position = UDim2.fromOffset(10,66)
+Scroll.Position = UDim2.fromOffset(10,68)
 Scroll.BackgroundTransparency = 1
 Scroll.BorderSizePixel = 0
 Scroll.ScrollBarThickness = 3
-Scroll.ScrollBarImageColor3 = Color3.fromRGB(100,100,125)
 Scroll.CanvasSize = UDim2.new(0,0,0,0)
 Scroll.Parent = Main
 
 local Layout = Instance.new("UIListLayout")
-Layout.Padding = UDim.new(0,9)
+Layout.Padding = UDim.new(0,8)
 Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 Layout.Parent = Scroll
 
-local Padding = Instance.new("UIPadding")
-Padding.PaddingBottom = UDim.new(0,15)
-Padding.Parent = Scroll
-
 --========================================================
--- HELPERS
+-- UI FUNCTIONS
 --========================================================
 
-local function makeSection(text)
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1,-6,0,25)
-    label.BackgroundTransparency = 1
-    label.Text = text
-    label.TextColor3 = Color3.fromRGB(135,135,160)
-    label.Font = Enum.Font.GothamBold
-    label.TextSize = 11
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = Scroll
-    return label
+local function Section(text)
+
+    local x = Instance.new("TextLabel")
+    x.Size = UDim2.new(1,-5,0,24)
+    x.BackgroundTransparency = 1
+    x.Text = text
+    x.TextColor3 = Color3.fromRGB(130,130,155)
+    x.TextSize = 10
+    x.Font = Enum.Font.GothamBold
+    x.TextXAlignment = Enum.TextXAlignment.Left
+    x.Parent = Scroll
+
 end
 
-local function makeButton(text, callback)
-    local button = Instance.new("TextButton")
-    button.Size = UDim2.new(1,-6,0,43)
-    button.BackgroundColor3 = Color3.fromRGB(25,25,33)
-    button.BorderSizePixel = 0
-    button.Text = text
-    button.TextColor3 = Color3.fromRGB(235,235,245)
-    button.Font = Enum.Font.GothamMedium
-    button.TextSize = 12
-    button.AutoButtonColor = false
-    button.Parent = Scroll
+local function Button(text,callback)
 
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0,10)
-    corner.Parent = button
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(1,-5,0,42)
+    b.BackgroundColor3 = Color3.fromRGB(25,25,34)
+    b.Text = text
+    b.TextColor3 = Color3.fromRGB(235,235,245)
+    b.TextSize = 12
+    b.Font = Enum.Font.GothamMedium
+    b.BorderSizePixel = 0
+    b.AutoButtonColor = false
+    b.Parent = Scroll
 
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(50,50,65)
-    stroke.Transparency = 0.4
-    stroke.Parent = button
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0,9)
+    c.Parent = b
 
-    button.MouseEnter:Connect(function()
-        TweenService:Create(button,TweenInfo.new(.15),{
-            BackgroundColor3 = Color3.fromRGB(35,35,47)
-        }):Play()
+    b.Activated:Connect(function()
+        pcall(callback)
     end)
 
-    button.MouseLeave:Connect(function()
-        TweenService:Create(button,TweenInfo.new(.15),{
-            BackgroundColor3 = Color3.fromRGB(25,25,33)
-        }):Play()
-    end)
-
-    button.Activated:Connect(callback)
-
-    return button
+    return b
 end
 
-local function makeToggle(text, default, callback)
-    local state = default
+local function Toggle(text,start,callback)
 
-    local button = makeButton("", function()
+    local state = start
+
+    local b = Button(text.." : "..(state and "ON" or "OFF"),function()
+
         state = not state
-        callback(state)
 
-        if state then
-            button.Text = text .. "     ON"
-            button.TextColor3 = Color3.fromRGB(150,210,255)
-        else
-            button.Text = text .. "     OFF"
-            button.TextColor3 = Color3.fromRGB(170,170,180)
-        end
+        b.Text = text.." : "..(state and "ON" or "OFF")
+
+        pcall(function()
+            callback(state)
+        end)
+
     end)
 
-    if state then
-        button.Text = text .. "     ON"
-        button.TextColor3 = Color3.fromRGB(150,210,255)
-    else
-        button.Text = text .. "     OFF"
-    end
-
-    return button
+    return b
 end
 
 --========================================================
 -- PRESETS
 --========================================================
 
-makeSection("GRAPHICS PRESETS")
+local function Ultra()
 
-local function ultra()
     Bloom.Enabled = true
-    Bloom.Intensity = 0.42
-    Bloom.Size = 32
-    Bloom.Threshold = 0.85
+    Bloom.Intensity = .45
+    Bloom.Size = 28
+    Bloom.Threshold = .85
 
-    ColorCorrection.Enabled = true
-    ColorCorrection.Brightness = 0.02
-    ColorCorrection.Contrast = 0.16
-    ColorCorrection.Saturation = 0.12
+    Color.Enabled = true
+    Color.Brightness = .02
+    Color.Contrast = .15
+    Color.Saturation = .12
 
     Atmosphere.Enabled = true
-    Atmosphere.Density = 0.22
-    Atmosphere.Haze = 0.7
-    Atmosphere.Glare = 0.08
+    Atmosphere.Density = .22
+    Atmosphere.Haze = .7
+    Atmosphere.Glare = .06
 
     SunRays.Enabled = true
-    SunRays.Intensity = 0.12
-    SunRays.Spread = 0.9
+    SunRays.Intensity = .12
+    SunRays.Spread = .9
 
     DOF.Enabled = false
 
-    Lighting.Brightness = 3
-    Lighting.ExposureCompensation = 0.15
-    Lighting.GlobalShadows = true
+    pcall(function()
+        Lighting.GlobalShadows = true
+        Lighting.Brightness = 3
+        Lighting.ExposureCompensation = .1
+    end)
+
 end
 
-local function cinematic()
-    Bloom.Enabled = true
-    Bloom.Intensity = 0.55
-    Bloom.Size = 28
-    Bloom.Threshold = 0.75
+local function Cinematic()
 
-    ColorCorrection.Enabled = true
-    ColorCorrection.Brightness = -0.02
-    ColorCorrection.Contrast = 0.2
-    ColorCorrection.Saturation = 0.05
+    Bloom.Enabled = true
+    Bloom.Intensity = .5
+    Bloom.Size = 30
+    Bloom.Threshold = .8
+
+    Color.Enabled = true
+    Color.Brightness = -.02
+    Color.Contrast = .2
+    Color.Saturation = .08
 
     Atmosphere.Enabled = true
-    Atmosphere.Density = 0.28
-    Atmosphere.Haze = 1.1
-    Atmosphere.Glare = 0.1
+    Atmosphere.Density = .28
+    Atmosphere.Haze = 1
+    Atmosphere.Glare = .08
 
     SunRays.Enabled = true
-    SunRays.Intensity = 0.15
+    SunRays.Intensity = .15
 
     DOF.Enabled = true
-    DOF.FarIntensity = 0.12
-    DOF.NearIntensity = 0.04
 
-    Lighting.Brightness = 2.5
-    Lighting.ExposureCompensation = 0
-    Lighting.GlobalShadows = true
+    pcall(function()
+        Lighting.GlobalShadows = true
+        Lighting.Brightness = 2.5
+        Lighting.ExposureCompensation = 0
+    end)
+
 end
 
-local function natural()
-    Bloom.Enabled = true
-    Bloom.Intensity = 0.18
-    Bloom.Size = 18
-    Bloom.Threshold = 1.1
+local function Natural()
 
-    ColorCorrection.Enabled = true
-    ColorCorrection.Brightness = 0
-    ColorCorrection.Contrast = 0.05
-    ColorCorrection.Saturation = 0.04
+    Bloom.Enabled = true
+    Bloom.Intensity = .2
+    Bloom.Size = 18
+    Bloom.Threshold = 1
+
+    Color.Enabled = true
+    Color.Brightness = 0
+    Color.Contrast = .05
+    Color.Saturation = .04
 
     Atmosphere.Enabled = true
-    Atmosphere.Density = 0.18
-    Atmosphere.Haze = 0.5
-    Atmosphere.Glare = 0.03
+    Atmosphere.Density = .17
+    Atmosphere.Haze = .5
+    Atmosphere.Glare = .03
 
     SunRays.Enabled = true
-    SunRays.Intensity = 0.05
+    SunRays.Intensity = .05
 
     DOF.Enabled = false
 
-    Lighting.Brightness = 2
-    Lighting.ExposureCompensation = 0
-    Lighting.GlobalShadows = true
 end
 
-local function performance()
-    Bloom.Enabled = false
-    ColorCorrection.Enabled = true
-    ColorCorrection.Brightness = 0
-    ColorCorrection.Contrast = 0
-    ColorCorrection.Saturation = 0
+local function Performance()
 
+    Bloom.Enabled = false
     Atmosphere.Enabled = false
     SunRays.Enabled = false
     DOF.Enabled = false
 
-    Lighting.GlobalShadows = false
+    Color.Enabled = true
+    Color.Brightness = 0
+    Color.Contrast = 0
+    Color.Saturation = 0
+
+    pcall(function()
+        Lighting.GlobalShadows = false
+    end)
+
 end
 
-makeButton("⚡  ULTRA REALISTIC", ultra)
-makeButton("🎬  CINEMATIC", cinematic)
-makeButton("🌤  NATURAL", natural)
-makeButton("🚀  PERFORMANCE", performance)
-
 --========================================================
--- EFFECTS
+-- BUTTONS
 --========================================================
 
-makeSection("VISUAL EFFECTS")
+Section("GRAPHICS PRESETS")
 
-makeToggle("Bloom", true, function(v)
+Button("⚡  ULTRA REALISTIC",Ultra)
+Button("🎬  CINEMATIC",Cinematic)
+Button("🌤  NATURAL",Natural)
+Button("🚀  PERFORMANCE",Performance)
+
+Section("VISUAL EFFECTS")
+
+Toggle("Bloom",true,function(v)
     Bloom.Enabled = v
 end)
 
-makeToggle("Sun Rays", true, function(v)
+Toggle("Sun Rays",true,function(v)
     SunRays.Enabled = v
 end)
 
-makeToggle("Atmosphere", true, function(v)
+Toggle("Atmosphere",true,function(v)
     Atmosphere.Enabled = v
 end)
 
-makeToggle("Depth Of Field", false, function(v)
+Toggle("Depth Of Field",false,function(v)
     DOF.Enabled = v
 end)
 
---========================================================
--- RESET
---========================================================
+Section("SYSTEM")
 
-makeSection("SYSTEM")
-
-makeButton("↻  RESET GRAPHICS", function()
-
-    Bloom.Enabled = false
-    ColorCorrection.Enabled = false
-    Atmosphere.Enabled = false
-    SunRays.Enabled = false
-    DOF.Enabled = false
-
-    Lighting.Brightness = 2
-    Lighting.ExposureCompensation = 0
-    Lighting.GlobalShadows = true
-
-    task.wait(.15)
-
-    ultra()
+Button("↻  RESET / ULTRA",function()
+    Ultra()
 end)
 
-makeButton("✕  REMOVE MOD", function()
+Button("✕  CLOSE MOD",function()
 
-    removeEffects()
+    DeleteEffect("MANI_Bloom")
+    DeleteEffect("MANI_Color")
+    DeleteEffect("MANI_Atmosphere")
+    DeleteEffect("MANI_SunRays")
+    DeleteEffect("MANI_DOF")
 
-    pcall(function()
-        ScreenGui:Destroy()
-    end)
+    ScreenGui:Destroy()
+
 end)
 
 --========================================================
--- DRAG SYSTEM
+-- CANVAS SIZE
+--========================================================
+
+task.wait()
+
+Scroll.CanvasSize = UDim2.new(
+    0,
+    0,
+    0,
+    Layout.AbsoluteContentSize.Y + 15
+)
+
+Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+
+    Scroll.CanvasSize = UDim2.new(
+        0,
+        0,
+        0,
+        Layout.AbsoluteContentSize.Y + 15
+    )
+
+end)
+
+--========================================================
+-- DRAG
 --========================================================
 
 local dragging = false
 local dragStart
-local startPos
-
-local function updateDrag(input)
-
-    local delta = input.Position - dragStart
-
-    Main.Position = UDim2.new(
-        startPos.X.Scale,
-        startPos.X.Offset + delta.X,
-        startPos.Y.Scale,
-        startPos.Y.Offset + delta.Y
-    )
-end
+local startPosition
 
 Header.InputBegan:Connect(function(input)
 
@@ -488,26 +524,40 @@ Header.InputBegan:Connect(function(input)
 
         dragging = true
         dragStart = input.Position
-        startPos = Main.Position
+        startPosition = Main.Position
 
-        input.Changed:Connect(function()
-
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-
-        end)
     end
+
+end)
+
+Header.InputEnded:Connect(function(input)
+
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+
+        dragging = false
+
+    end
+
 end)
 
 UserInputService.InputChanged:Connect(function(input)
 
-    if dragging and (
-        input.UserInputType == Enum.UserInputType.MouseMovement
-        or input.UserInputType == Enum.UserInputType.Touch
-    ) then
-        updateDrag(input)
+    if not dragging then return end
+
+    if input.UserInputType ~= Enum.UserInputType.MouseMovement
+    and input.UserInputType ~= Enum.UserInputType.Touch then
+        return
     end
+
+    local delta = input.Position - dragStart
+
+    Main.Position = UDim2.new(
+        startPosition.X.Scale,
+        startPosition.X.Offset + delta.X,
+        startPosition.Y.Scale,
+        startPosition.Y.Offset + delta.Y
+    )
 
 end)
 
@@ -517,95 +567,70 @@ end)
 
 local minimized = false
 
-MinButton.Activated:Connect(function()
+Min.Activated:Connect(function()
 
     minimized = not minimized
 
     if minimized then
 
         Scroll.Visible = false
-
-        TweenService:Create(
-            Main,
-            TweenInfo.new(.2,Enum.EasingStyle.Quint,Enum.EasingDirection.Out),
-            {Size = UDim2.fromOffset(390,58)}
-        ):Play()
-
-        MinButton.Text = "+"
+        Main.Size = UDim2.fromOffset(380,60)
+        Min.Text = "+"
 
     else
 
         Scroll.Visible = true
+        Main.Size = UDim2.fromOffset(380,480)
+        Min.Text = "—"
 
-        TweenService:Create(
-            Main,
-            TweenInfo.new(.2,Enum.EasingStyle.Quint,Enum.EasingDirection.Out),
-            {Size = UDim2.fromOffset(390,510)}
-        ):Play()
-
-        MinButton.Text = "—"
     end
-end)
 
-CloseButton.Activated:Connect(function()
-    removeEffects()
-    ScreenGui:Destroy()
 end)
 
 --========================================================
--- RESPONSIVE MOBILE SCALE
+-- MOBILE RESPONSIVE
 --========================================================
 
-local function resizeGUI()
+local function Responsive()
 
     local camera = workspace.CurrentCamera
+
     if not camera then return end
 
-    local viewport = camera.ViewportSize
+    local size = camera.ViewportSize
 
-    if viewport.X < 500 then
-        Main.Size = UDim2.new(0.88,0,0,470)
-        Main.Position = UDim2.new(0.06,0,0.5,-235)
+    if size.X < 600 then
+
+        Main.Size = UDim2.new(.88,0,0,450)
+        Main.Position = UDim2.new(.06,0,.5,-225)
+
     else
-        Main.Size = UDim2.fromOffset(390,510)
-        Main.Position = UDim2.new(0.5,-195,0.5,-255)
+
+        Main.Size = UDim2.fromOffset(380,480)
+        Main.Position = UDim2.new(.5,-190,.5,-240)
+
     end
+
 end
 
-resizeGUI()
+Responsive()
 
-if workspace.CurrentCamera then
-    workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(resizeGUI)
-end
+pcall(function()
 
---========================================================
--- INITIAL PRESET
---========================================================
+    workspace.CurrentCamera:GetPropertyChangedSignal(
+        "ViewportSize"
+    ):Connect(Responsive)
 
-ultra()
-
---========================================================
--- UPDATE CANVAS
---========================================================
-
-task.defer(function()
-    task.wait()
-    Scroll.CanvasSize = UDim2.new(
-        0,
-        0,
-        0,
-        Layout.AbsoluteContentSize.Y + 20
-    )
 end)
 
-Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    Scroll.CanvasSize = UDim2.new(
-        0,
-        0,
-        0,
-        Layout.AbsoluteContentSize.Y + 20
-    )
-end)
+--========================================================
+-- START
+--========================================================
 
-print("MANI UNIVERSAL GRAPHICS MOD V.1 LOADED")
+Ultra()
+
+print("================================")
+print("MANI GRAPHICS MOD V1.1 LOADED")
+print("GUI PARENT:",GuiParent:GetFullName())
+print("================================")
 ```
