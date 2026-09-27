@@ -1,636 +1,1161 @@
-```lua
---========================================================
--- MANI UNIVERSAL GRAPHICS MOD V1.1
--- FIXED GUI LOADER
--- PC + MOBILE
---========================================================
+-- MANI GUI V.1 by MANISH_K05
+-- Fixed: minimize toggles, full-screen toggle, aura follows player, props work
 
-repeat task.wait() until game:IsLoaded()
+local AllAuraConfigs = {
+    SoftGlow = { name = "Soft Glow", speed = 0.5, radius = 12, offsetY = 0, rotation = 0, type = "circle", color = "🟢" },
+    FreshBreeze = { name = "Fresh Breeze", speed = 0.7, radius = 14, offsetY = 2, rotation = 15, type = "circle", color = "🟢" },
+    CalmRing = { name = "Calm Ring", speed = 0.3, radius = 10, offsetY = 1, rotation = 0, type = "circle", color = "🟢" },
+    TinyOrbit = { name = "Tiny Orbit", speed = 1.2, radius = 8, offsetY = 0, rotation = 0, type = "circle", color = "🟢" },
+    SimpleHalo = { name = "Simple Halo", speed = 0.4, radius = 13, offsetY = 3, rotation = 0, type = "circle", color = "🟢" },
+    FloatingMist = { name = "Floating Mist", speed = 0.2, radius = 16, offsetY = 5, rotation = 10, type = "circle", color = "🟢" },
+    GentleWave = { name = "Gentle Wave", speed = 0.8, radius = 11, offsetY = 1, rotation = 0, type = "wave", color = "🟢" },
+    LightBloom = { name = "Light Bloom", speed = 0.6, radius = 9, offsetY = 0, rotation = 5, type = "circle", color = "🟢" },
+    MiniSpiral = { name = "Mini Spiral", speed = 0.9, radius = 10, offsetY = 2, rotation = 0, type = "spiral", color = "🟢" },
+    CloudRing = { name = "Cloud Ring", speed = 0.2, radius = 18, offsetY = 4, rotation = 0, type = "circle", color = "🟢" },
+    SoftOrbit = { name = "Soft Orbit", speed = 0.5, radius = 12, offsetY = 0, rotation = 0, type = "circle", color = "🟢" },
+    BrightCircle = { name = "Bright Circle", speed = 0.6, radius = 14, offsetY = 1, rotation = 0, type = "circle", color = "🟢" },
+    PeaceAura = { name = "Peace Aura", speed = 0.3, radius = 16, offsetY = 2, rotation = 5, type = "circle", color = "🟢" },
+    BreezeHalo = { name = "Breeze Halo", speed = 0.7, radius = 13, offsetY = 3, rotation = 0, type = "circle", color = "🟢" },
+    MorningGlow = { name = "Morning Glow", speed = 0.4, radius = 15, offsetY = 1, rotation = 10, type = "circle", color = "🟢" },
+    FloatingStars = { name = "Floating Stars", speed = 0.8, radius = 11, offsetY = 4, rotation = 0, type = "star", color = "🟢" },
+    LittleGalaxy = { name = "Little Galaxy", speed = 0.5, radius = 17, offsetY = 2, rotation = 15, type = "spiral", color = "🟢" },
+    DreamRing = { name = "Dream Ring", speed = 0.3, radius = 14, offsetY = 0, rotation = 0, type = "double", color = "🟢" },
+    PureHalo = { name = "Pure Halo", speed = 0.4, radius = 12, offsetY = 3, rotation = 0, type = "circle", color = "🟢" },
+    SkyBloom = { name = "Sky Bloom", speed = 0.6, radius = 18, offsetY = 5, rotation = 8, type = "circle", color = "🟢" },
+    AquaOrbit = { name = "Aqua Orbit", speed = 0.7, radius = 13, offsetY = 1, rotation = 5, type = "circle", color = "🔵" },
+    FrostRing = { name = "Frost Ring", speed = 0.4, radius = 11, offsetY = 0, rotation = 0, type = "circle", color = "🔵" },
+    CrystalWave = { name = "Crystal Wave", speed = 0.9, radius = 14, offsetY = 2, rotation = 0, type = "wave", color = "🔵" },
+    WindSpiral = { name = "Wind Spiral", speed = 1.0, radius = 12, offsetY = 1, rotation = 10, type = "spiral", color = "🔵" },
+    Rainfall = { name = "Rainfall", speed = 0.5, radius = 15, offsetY = 4, rotation = 0, type = "circle", color = "🔵" },
+    BlueComet = { name = "Blue Comet", speed = 1.2, radius = 10, offsetY = 0, rotation = 15, type = "circle", color = "🔵" },
+    IceHalo = { name = "Ice Halo", speed = 0.3, radius = 13, offsetY = 3, rotation = 0, type = "circle", color = "🔵" },
+    MistSpiral = { name = "Mist Spiral", speed = 0.6, radius = 16, offsetY = 2, rotation = 5, type = "spiral", color = "🔵" },
+    OceanRing = { name = "Ocean Ring", speed = 0.4, radius = 14, offsetY = 1, rotation = 0, type = "circle", color = "🔵" },
+    CloudSpiral = { name = "Cloud Spiral", speed = 0.3, radius = 17, offsetY = 5, rotation = 8, type = "spiral", color = "🔵" },
+    SnowOrbit = { name = "Snow Orbit", speed = 0.5, radius = 14, offsetY = 1, rotation = 0, type = "circle", color = "🔵" },
+    SilverBloom = { name = "Silver Bloom", speed = 0.6, radius = 16, offsetY = 2, rotation = 5, type = "circle", color = "🔵" },
+    MoonRing = { name = "Moon Ring", speed = 0.3, radius = 12, offsetY = 0, rotation = 0, type = "circle", color = "🔵" },
+    StarOrbit = { name = "Star Orbit", speed = 0.8, radius = 13, offsetY = 3, rotation = 10, type = "star", color = "🔵" },
+    SkySpiral = { name = "Sky Spiral", speed = 0.7, radius = 15, offsetY = 2, rotation = 12, type = "spiral", color = "🔵" },
+    FrozenHalo = { name = "Frozen Halo", speed = 0.4, radius = 11, offsetY = 4, rotation = 0, type = "circle", color = "🔵" },
+    CrystalOrbit = { name = "Crystal Orbit", speed = 0.9, radius = 17, offsetY = 1, rotation = 15, type = "circle", color = "🔵" },
+    TidalWave = { name = "Tidal Wave", speed = 0.5, radius = 18, offsetY = 3, rotation = 0, type = "wave", color = "🔵" },
+    WinterBloom = { name = "Winter Bloom", speed = 0.4, radius = 14, offsetY = 2, rotation = 8, type = "circle", color = "🔵" },
+    ArcticRing = { name = "Arctic Ring", speed = 0.3, radius = 16, offsetY = 5, rotation = 0, type = "double", color = "🔵" },
+    MysticSpiral = { name = "Mystic Spiral", speed = 0.8, radius = 14, offsetY = 2, rotation = 10, type = "spiral", color = "🟣" },
+    PhantomRing = { name = "Phantom Ring", speed = 0.5, radius = 12, offsetY = 0, rotation = 0, type = "double", color = "🟣" },
+    ArcaneOrbit = { name = "Arcane Orbit", speed = 0.7, radius = 15, offsetY = 1, rotation = 8, type = "circle", color = "🟣" },
+    SoulHalo = { name = "Soul Halo", speed = 0.4, radius = 13, offsetY = 3, rotation = 0, type = "circle", color = "🟣" },
+    AstralBloom = { name = "Astral Bloom", speed = 0.6, radius = 16, offsetY = 2, rotation = 12, type = "star", color = "🟣" },
+    RuneCircle = { name = "Rune Circle", speed = 0.3, radius = 11, offsetY = 0, rotation = 15, type = "circle", color = "🟣" },
+    DreamSpiral = { name = "Dream Spiral", speed = 0.9, radius = 14, offsetY = 3, rotation = 0, type = "spiral", color = "🟣" },
+    SpiritOrbit = { name = "Spirit Orbit", speed = 0.5, radius = 17, offsetY = 4, rotation = 6, type = "circle", color = "🟣" },
+    Moonveil = { name = "Moonveil", speed = 0.4, radius = 12, offsetY = 1, rotation = 0, type = "wave", color = "🟣" },
+    Starveil = { name = "Starveil", speed = 0.7, radius = 15, offsetY = 2, rotation = 10, type = "star", color = "🟣" },
+    EtherRing = { name = "Ether Ring", speed = 0.5, radius = 16, offsetY = 1, rotation = 0, type = "double", color = "🟣" },
+    MirageOrbit = { name = "Mirage Orbit", speed = 0.8, radius = 14, offsetY = 2, rotation = 8, type = "circle", color = "🟣" },
+    TwilightHalo = { name = "Twilight Halo", speed = 0.4, radius = 17, offsetY = 3, rotation = 5, type = "circle", color = "🟣" },
+    SpectralBloom = { name = "Spectral Bloom", speed = 0.6, radius = 18, offsetY = 4, rotation = 10, type = "spiral", color = "🟣" },
+    MysticCrown = { name = "Mystic Crown", speed = 0.3, radius = 13, offsetY = 5, rotation = 0, type = "circle", color = "🟣" },
+    AstralRing = { name = "Astral Ring", speed = 0.7, radius = 15, offsetY = 0, rotation = 12, type = "circle", color = "🟣" },
+    PhantomOrbit = { name = "Phantom Orbit", speed = 0.9, radius = 12, offsetY = 2, rotation = 15, type = "wave", color = "🟣" },
+    SoulSpiral = { name = "Soul Spiral", speed = 0.5, radius = 19, offsetY = 3, rotation = 6, type = "spiral", color = "🟣" },
+    ArcaneBloom = { name = "Arcane Bloom", speed = 0.6, radius = 16, offsetY = 2, rotation = 9, type = "star", color = "🟣" },
+    Dreamveil = { name = "Dreamveil", speed = 0.4, radius = 14, offsetY = 4, rotation = 0, type = "double", color = "🟣" },
+    SolarCrown = { name = "Solar Crown", speed = 0.6, radius = 15, offsetY = 3, rotation = 0, type = "double", color = "🟠" },
+    LunarCrown = { name = "Lunar Crown", speed = 0.4, radius = 14, offsetY = 2, rotation = 10, type = "double", color = "🟠" },
+    ThunderRing = { name = "Thunder Ring", speed = 1.2, radius = 13, offsetY = 0, rotation = 5, type = "wave", color = "🟠" },
+    FlameOrbit = { name = "Flame Orbit", speed = 0.9, radius = 16, offsetY = 1, rotation = 8, type = "spiral", color = "🟠" },
+    FrostCrown = { name = "Frost Crown", speed = 0.3, radius = 12, offsetY = 4, rotation = 0, type = "circle", color = "🟠" },
+    StormSpiral = { name = "Storm Spiral", speed = 1.0, radius = 17, offsetY = 2, rotation = 12, type = "spiral", color = "🟠" },
+    CometHalo = { name = "Comet Halo", speed = 0.8, radius = 14, offsetY = 1, rotation = 15, type = "star", color = "🟠" },
+    MeteorRing = { name = "Meteor Ring", speed = 1.1, radius = 11, offsetY = 0, rotation = 0, type = "circle", color = "🟠" },
+    GalaxyOrbit = { name = "Galaxy Orbit", speed = 0.5, radius = 18, offsetY = 3, rotation = 6, type = "circle", color = "🟠" },
+    NebulaBloom = { name = "Nebula Bloom", speed = 0.4, radius = 16, offsetY = 4, rotation = 10, type = "star", color = "🟠" },
+    GravityRing = { name = "Gravity Ring", speed = 0.5, radius = 16, offsetY = 0, rotation = 0, type = "double", color = "🟠" },
+    EnergySpiral = { name = "Energy Spiral", speed = 0.9, radius = 15, offsetY = 2, rotation = 8, type = "spiral", color = "🟠" },
+    VortexHalo = { name = "Vortex Halo", speed = 0.7, radius = 18, offsetY = 3, rotation = 5, type = "wave", color = "🟠" },
+    PlasmaOrbit = { name = "Plasma Orbit", speed = 1.0, radius = 14, offsetY = 1, rotation = 12, type = "circle", color = "🟠" },
+    SolarSpiral = { name = "Solar Spiral", speed = 0.6, radius = 19, offsetY = 4, rotation = 15, type = "spiral", color = "🟠" },
+    ThunderCrown = { name = "Thunder Crown", speed = 0.8, radius = 13, offsetY = 5, rotation = 0, type = "double", color = "🟠" },
+    CosmicRing = { name = "Cosmic Ring", speed = 0.4, radius = 17, offsetY = 1, rotation = 10, type = "circle", color = "🟠" },
+    Starstorm = { name = "Starstorm", speed = 1.1, radius = 12, offsetY = 2, rotation = 6, type = "star", color = "🟠" },
+    SupernovaHalo = { name = "Supernova Halo", speed = 0.7, radius = 20, offsetY = 3, rotation = 8, type = "wave", color = "🟠" },
+    CelestialOrbit = { name = "Celestial Orbit", speed = 0.5, radius = 16, offsetY = 2, rotation = 12, type = "circle", color = "🟠" },
+    EclipseCrown = { name = "Eclipse Crown", speed = 0.5, radius = 16, offsetY = 4, rotation = 8, type = "double", color = "🔴" },
+    VoidSpiral = { name = "Void Spiral", speed = 1.0, radius = 14, offsetY = 1, rotation = 12, type = "spiral", color = "🔴" },
+    InfinityRing = { name = "Infinity Ring", speed = 0.4, radius = 13, offsetY = 0, rotation = 0, type = "double", color = "🔴" },
+    EternalOrbit = { name = "Eternal Orbit", speed = 0.6, radius = 17, offsetY = 2, rotation = 6, type = "circle", color = "🔴" },
+    DivineHalo = { name = "Divine Halo", speed = 0.3, radius = 15, offsetY = 5, rotation = 0, type = "circle", color = "🔴" },
+    AncientCrown = { name = "Ancient Crown", speed = 0.4, radius = 12, offsetY = 3, rotation = 10, type = "star", color = "🔴" },
+    ImmortalSpiral = { name = "Immortal Spiral", speed = 0.9, radius = 18, offsetY = 2, rotation = 15, type = "spiral", color = "🔴" },
+    RealityRing = { name = "Reality Ring", speed = 0.5, radius = 14, offsetY = 0, rotation = 5, type = "wave", color = "🔴" },
+    DimensionOrbit = { name = "Dimension Orbit", speed = 0.7, radius = 16, offsetY = 3, rotation = 8, type = "circle", color = "🔴" },
+    TimeflowHalo = { name = "Timeflow Halo", speed = 0.3, radius = 13, offsetY = 4, rotation = 0, type = "wave", color = "🔴" },
+    CosmicCrown = { name = "Cosmic Crown", speed = 0.4, radius = 18, offsetY = 4, rotation = 6, type = "double", color = "🔴" },
+    UniverseSpiral = { name = "Universe Spiral", speed = 0.8, radius = 20, offsetY = 2, rotation = 12, type = "spiral", color = "🔴" },
+    InfinityBloom = { name = "Infinity Bloom", speed = 0.5, radius = 16, offsetY = 3, rotation = 8, type = "star", color = "🔴" },
+    CelestialCrown = { name = "Celestial Crown", speed = 0.3, radius = 17, offsetY = 5, rotation = 0, type = "circle", color = "🔴" },
+    EternityRing = { name = "Eternity Ring", speed = 0.4, radius = 14, offsetY = 0, rotation = 10, type = "double", color = "🔴" },
+    AstralDominion = { name = "Astral Dominion", speed = 0.6, radius = 19, offsetY = 3, rotation = 5, type = "circle", color = "🔴" },
+    DivineOrbit = { name = "Divine Orbit", speed = 0.5, radius = 15, offsetY = 2, rotation = 12, type = "wave", color = "🔴" },
+    RealityHalo = { name = "Reality Halo", speed = 0.4, radius = 16, offsetY = 4, rotation = 0, type = "circle", color = "🔴" },
+    InfiniteSpiral = { name = "Infinite Spiral", speed = 0.9, radius = 18, offsetY = 1, rotation = 15, type = "spiral", color = "🔴" },
+    EternalBloom = { name = "Eternal Bloom", speed = 0.5, radius = 17, offsetY = 3, rotation = 8, type = "star", color = "🔴" },
+    ChaosCrown = { name = "Chaos Crown", speed = 0.8, radius = 18, offsetY = 4, rotation = 12, type = "double", color = "🟡" },
+    AbyssOrbit = { name = "Abyss Orbit", speed = 0.6, radius = 16, offsetY = 2, rotation = 8, type = "circle", color = "🟡" },
+    OblivionRing = { name = "Oblivion Ring", speed = 0.5, radius = 14, offsetY = 0, rotation = 0, type = "double", color = "🟡" },
+    VoidCrown = { name = "Void Crown", speed = 0.4, radius = 17, offsetY = 5, rotation = 10, type = "circle", color = "🟡" },
+    DarkstarSpiral = { name = "Darkstar Spiral", speed = 1.0, radius = 15, offsetY = 3, rotation = 15, type = "spiral", color = "🟡" },
+    BlackholeHalo = { name = "Blackhole Halo", speed = 0.3, radius = 13, offsetY = 1, rotation = 0, type = "wave", color = "🟡" },
+    EndworldOrbit = { name = "Endworld Orbit", speed = 0.7, radius = 19, offsetY = 2, rotation = 6, type = "circle", color = "🟡" },
+    PhantomDominion = { name = "Phantom Dominion", speed = 0.9, radius = 14, offsetY = 4, rotation = 12, type = "star", color = "🟡" },
+    AbyssalCrown = { name = "Abyssal Crown", speed = 0.5, radius = 16, offsetY = 3, rotation = 8, type = "double", color = "🟡" },
+    InfiniteVoid = { name = "Infinite Void", speed = 0.6, radius = 12, offsetY = 0, rotation = 5, type = "spiral", color = "🟡" },
+    RealityBreaker = { name = "Reality Breaker", speed = 0.9, radius = 20, offsetY = 3, rotation = 10, type = "spiral", color = "🟡" },
+    CosmicDestroyer = { name = "Cosmic Destroyer", speed = 0.7, radius = 18, offsetY = 4, rotation = 8, type = "double", color = "🟡" },
+    EternalVoid = { name = "Eternal Void", speed = 0.5, radius = 17, offsetY = 2, rotation = 12, type = "wave", color = "🟡" },
+    DimensionBreak = { name = "Dimension Break", speed = 0.8, radius = 19, offsetY = 1, rotation = 15, type = "circle", color = "🟡" },
+    ChaosSpiral = { name = "Chaos Spiral", speed = 1.0, radius = 16, offsetY = 3, rotation = 6, type = "spiral", color = "🟡" },
+    Voidstorm = { name = "Voidstorm", speed = 0.6, radius = 21, offsetY = 5, rotation = 10, type = "star", color = "🟡" },
+    BlackstarCrown = { name = "Blackstar Crown", speed = 0.4, radius = 15, offsetY = 4, rotation = 0, type = "double", color = "🟡" },
+    OblivionHalo = { name = "Oblivion Halo", speed = 0.5, radius = 18, offsetY = 2, rotation = 8, type = "circle", color = "🟡" },
+    ZeroPoint = { name = "Zero Point", speed = 0.3, radius = 14, offsetY = 0, rotation = 5, type = "wave", color = "🟡" },
+    FinalEclipse = { name = "Final Eclipse", speed = 0.7, radius = 22, offsetY = 3, rotation = 12, type = "double", color = "🟡" },
+    NOVA15 = { name = "NOVA-15", speed = 1.5, radius = 20, offsetY = 3, rotation = 15, type = "double", color = "💠" },
+    Fifteenfold = { name = "Fifteenfold", speed = 0.8, radius = 18, offsetY = 2, rotation = 10, type = "spiral", color = "💠" },
+    Prophecy = { name = "Prophecy", speed = 0.6, radius = 16, offsetY = 4, rotation = 8, type = "star", color = "💠" },
+    TheCollector = { name = "The Collector", speed = 0.4, radius = 14, offsetY = 1, rotation = 0, type = "circle", color = "💠" },
+    LostFormation = { name = "Lost Formation", speed = 0.7, radius = 17, offsetY = 3, rotation = 12, type = "wave", color = "💠" },
+    ForbiddenOrbit = { name = "Forbidden Orbit", speed = 0.9, radius = 15, offsetY = 0, rotation = 6, type = "double", color = "💠" },
+    UnknownEntity = { name = "Unknown Entity", speed = 0.5, radius = 19, offsetY = 5, rotation = 10, type = "spiral", color = "💠" },
+    ZeroGravity = { name = "Zero Gravity", speed = 0.3, radius = 13, offsetY = 2, rotation = 0, type = "circle", color = "💠" },
+    BeyondReality = { name = "Beyond Reality", speed = 1.0, radius = 16, offsetY = 4, rotation = 15, type = "star", color = "💠" },
+    TheLastAura = { name = "The Last Aura", speed = 0.6, radius = 14, offsetY = 1, rotation = 8, type = "wave", color = "💠" },
+    HiddenDimension = { name = "Hidden Dimension", speed = 0.8, radius = 22, offsetY = 3, rotation = 12, type = "double", color = "💠" },
+    InfiniteMachinery = { name = "Infinite Machinery", speed = 0.6, radius = 18, offsetY = 2, rotation = 10, type = "spiral", color = "💠" },
+    AbsoluteZero = { name = "Absolute Zero", speed = 0.4, radius = 16, offsetY = 1, rotation = 0, type = "circle", color = "💠" },
+    Worldbreaker = { name = "Worldbreaker", speed = 0.9, radius = 24, offsetY = 4, rotation = 15, type = "star", color = "💠" },
+    EternalMachinery = { name = "Eternal Machinery", speed = 0.7, radius = 20, offsetY = 3, rotation = 8, type = "double", color = "💠" },
+    UnknownSignal = { name = "Unknown Signal", speed = 0.5, radius = 17, offsetY = 2, rotation = 6, type = "wave", color = "💠" },
+    The15thRealm = { name = "The 15th Realm", speed = 0.3, radius = 15, offsetY = 0, rotation = 5, type = "circle", color = "💠" },
+    Singularity = { name = "Singularity", speed = 1.0, radius = 21, offsetY = 5, rotation = 12, type = "spiral", color = "💠" },
+    Realityexe = { name = "Reality.exe", speed = 0.8, radius = 19, offsetY = 3, rotation = 10, type = "double", color = "💠" }
+}
 
 local Players = game:GetService("Players")
-local Lighting = game:GetService("Lighting")
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
 
-local Player = Players.LocalPlayer
+local currentAura = nil
+local auraRunning = false
+local auraThread = nil
+local auraToken = 0
+local stopSnake
 
---========================================================
--- SAFE GUI PARENT
---========================================================
+local propList = {}
+local centerPosition = nil
+local propFolder = nil
+local totalProps = 0
 
-local function GetGuiParent()
+-- =========================================================
+-- PROP ENGINE
+-- Uses the same server RemoteFunction as the working
+-- SetCurrentCFrame prop-handle script.
+-- =========================================================
 
-    -- Delta / common executors
-    if typeof(gethui) == "function" then
-        local ok, hui = pcall(gethui)
-        if ok and hui then
-            return hui
+local function getPropFolder()
+    local workspaceCom = workspace:FindFirstChild("WorkspaceCom")
+    if not workspaceCom then
+        return nil
+    end
+
+    return workspaceCom:FindFirstChild("001_TrafficCones")
+end
+
+local function findSetCurrentCFrame(prop)
+    if not prop then
+        return nil
+    end
+
+    -- The known-working prop script uses this as a direct child.
+    local remote = prop:FindFirstChild("SetCurrentCFrame")
+    if remote and remote:IsA("RemoteFunction") then
+        return remote
+    end
+
+    -- Extra robustness if the RemoteFunction is nested.
+    for _, descendant in ipairs(prop:GetDescendants()) do
+        if descendant.Name == "SetCurrentCFrame"
+            and descendant:IsA("RemoteFunction") then
+            return descendant
         end
     end
 
-    -- Roblox CoreGui fallback
-    local ok, core = pcall(function()
-        return game:GetService("CoreGui")
-    end)
-
-    if ok and core then
-        return core
-    end
-
-    -- Normal Roblox fallback
-    return Player:WaitForChild("PlayerGui")
+    return nil
 end
 
-local GuiParent = GetGuiParent()
+local function findProps()
+    table.clear(propList)
+    propFolder = getPropFolder()
+    totalProps = 0
 
---========================================================
--- REMOVE OLD VERSION
---========================================================
-
-pcall(function()
-    local old = GuiParent:FindFirstChild("MANI_GRAPHICS_V11")
-    if old then
-        old:Destroy()
+    if not propFolder then
+        return false
     end
-end)
 
---========================================================
--- GUI
---========================================================
+    local playerName = LocalPlayer.Name
 
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "MANI_GRAPHICS_V11"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.IgnoreGuiInset = true
-
-local parentOK = pcall(function()
-    ScreenGui.Parent = GuiParent
-end)
-
-if not parentOK then
-    ScreenGui.Parent = Player:WaitForChild("PlayerGui")
-end
-
---========================================================
--- LOADING
---========================================================
-
-local Loading = Instance.new("TextLabel")
-Loading.Size = UDim2.fromOffset(300,60)
-Loading.Position = UDim2.new(.5,-150,.5,-30)
-Loading.BackgroundColor3 = Color3.fromRGB(15,15,20)
-Loading.Text = "MANI GRAPHICS\nLOADING..."
-Loading.TextColor3 = Color3.fromRGB(170,200,255)
-Loading.TextSize = 15
-Loading.Font = Enum.Font.GothamBold
-Loading.BorderSizePixel = 0
-Loading.ZIndex = 999
-Loading.Parent = ScreenGui
-
-local LC = Instance.new("UICorner")
-LC.CornerRadius = UDim.new(0,12)
-LC.Parent = Loading
-
-task.wait(.5)
-
-pcall(function()
-    Loading:Destroy()
-end)
-
---========================================================
--- EFFECT CLEANUP
---========================================================
-
-local function DeleteEffect(name)
-    pcall(function()
-        local obj = Lighting:FindFirstChild(name)
-        if obj then
-            obj:Destroy()
+    -- IMPORTANT:
+    -- Only use props whose name contains the local player's
+    -- username, matching the user's working prop script.
+    for _, prop in ipairs(propFolder:GetChildren()) do
+        if (prop:IsA("BasePart") or prop:IsA("Model"))
+            and string.find(prop.Name, playerName, 1, true) then
+            table.insert(propList, prop)
         end
-    end)
+    end
+
+    if #propList == 0 then
+        return false
+    end
+
+    -- Prefer 25 props when available.
+    -- If fewer exist, use every owned prop instead of failing.
+    totalProps = math.min(#propList, 25)
+
+    return true
 end
 
-DeleteEffect("MANI_Bloom")
-DeleteEffect("MANI_Color")
-DeleteEffect("MANI_Atmosphere")
-DeleteEffect("MANI_SunRays")
-DeleteEffect("MANI_DOF")
+local remoteCache = setmetatable({}, {__mode = "k"})
 
---========================================================
--- CREATE EFFECTS
---========================================================
-
-local Bloom = Instance.new("BloomEffect")
-Bloom.Name = "MANI_Bloom"
-Bloom.Intensity = .4
-Bloom.Size = 24
-Bloom.Threshold = .9
-Bloom.Enabled = true
-Bloom.Parent = Lighting
-
-local Color = Instance.new("ColorCorrectionEffect")
-Color.Name = "MANI_Color"
-Color.Brightness = .02
-Color.Contrast = .12
-Color.Saturation = .12
-Color.Enabled = true
-Color.Parent = Lighting
-
-local Atmosphere = Instance.new("Atmosphere")
-Atmosphere.Name = "MANI_Atmosphere"
-Atmosphere.Density = .22
-Atmosphere.Offset = .1
-Atmosphere.Haze = .7
-Atmosphere.Glare = .05
-Atmosphere.Color = Color3.fromRGB(200,215,255)
-Atmosphere.Decay = Color3.fromRGB(100,105,120)
-Atmosphere.Enabled = true
-Atmosphere.Parent = Lighting
-
-local SunRays = Instance.new("SunRaysEffect")
-SunRays.Name = "MANI_SunRays"
-SunRays.Intensity = .1
-SunRays.Spread = .85
-SunRays.Enabled = true
-SunRays.Parent = Lighting
-
-local DOF = Instance.new("DepthOfFieldEffect")
-DOF.Name = "MANI_DOF"
-DOF.FarIntensity = .1
-DOF.NearIntensity = .03
-DOF.FocusDistance = 50
-DOF.InFocusRadius = 30
-DOF.Enabled = false
-DOF.Parent = Lighting
-
---========================================================
--- MAIN GUI
---========================================================
-
-local Main = Instance.new("Frame")
-Main.Name = "Main"
-Main.Size = UDim2.fromOffset(380,480)
-Main.Position = UDim2.new(.5,-190,.5,-240)
-Main.BackgroundColor3 = Color3.fromRGB(12,12,17)
-Main.BorderSizePixel = 0
-Main.Parent = ScreenGui
-
-local Corner = Instance.new("UICorner")
-Corner.CornerRadius = UDim.new(0,15)
-Corner.Parent = Main
-
-local Border = Instance.new("UIStroke")
-Border.Color = Color3.fromRGB(70,70,90)
-Border.Thickness = 1
-Border.Transparency = .25
-Border.Parent = Main
-
---========================================================
--- HEADER
---========================================================
-
-local Header = Instance.new("Frame")
-Header.Size = UDim2.new(1,0,0,60)
-Header.BackgroundColor3 = Color3.fromRGB(20,20,28)
-Header.BorderSizePixel = 0
-Header.Parent = Main
-
-local HCorner = Instance.new("UICorner")
-HCorner.CornerRadius = UDim.new(0,15)
-HCorner.Parent = Header
-
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1,-120,0,27)
-Title.Position = UDim2.fromOffset(17,7)
-Title.BackgroundTransparency = 1
-Title.Text = "MANI UNIVERSAL"
-Title.TextColor3 = Color3.fromRGB(245,245,255)
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 17
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Parent = Header
-
-local Sub = Instance.new("TextLabel")
-Sub.Size = UDim2.new(1,-120,0,18)
-Sub.Position = UDim2.fromOffset(17,34)
-Sub.BackgroundTransparency = 1
-Sub.Text = "GRAPHICS MOD  •  V1.1"
-Sub.TextColor3 = Color3.fromRGB(135,135,155)
-Sub.Font = Enum.Font.Gotham
-Sub.TextSize = 10
-Sub.TextXAlignment = Enum.TextXAlignment.Left
-Sub.Parent = Header
-
-local Min = Instance.new("TextButton")
-Min.Size = UDim2.fromOffset(34,30)
-Min.Position = UDim2.new(1,-78,0,15)
-Min.BackgroundColor3 = Color3.fromRGB(35,35,45)
-Min.Text = "—"
-Min.TextColor3 = Color3.fromRGB(255,255,255)
-Min.TextSize = 16
-Min.Font = Enum.Font.GothamBold
-Min.BorderSizePixel = 0
-Min.Parent = Header
-
-local MC = Instance.new("UICorner")
-MC.CornerRadius = UDim.new(0,8)
-MC.Parent = Min
-
-local Close = Instance.new("TextButton")
-Close.Size = UDim2.fromOffset(34,30)
-Close.Position = UDim2.new(1,-40,0,15)
-Close.BackgroundColor3 = Color3.fromRGB(55,25,30)
-Close.Text = "X"
-Close.TextColor3 = Color3.fromRGB(255,120,130)
-Close.TextSize = 14
-Close.Font = Enum.Font.GothamBold
-Close.BorderSizePixel = 0
-Close.Parent = Header
-
-local CC = Instance.new("UICorner")
-CC.CornerRadius = UDim.new(0,8)
-CC.Parent = Close
-
---========================================================
--- SCROLL
---========================================================
-
-local Scroll = Instance.new("ScrollingFrame")
-Scroll.Size = UDim2.new(1,-20,1,-72)
-Scroll.Position = UDim2.fromOffset(10,68)
-Scroll.BackgroundTransparency = 1
-Scroll.BorderSizePixel = 0
-Scroll.ScrollBarThickness = 3
-Scroll.CanvasSize = UDim2.new(0,0,0,0)
-Scroll.Parent = Main
-
-local Layout = Instance.new("UIListLayout")
-Layout.Padding = UDim.new(0,8)
-Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-Layout.Parent = Scroll
-
---========================================================
--- UI FUNCTIONS
---========================================================
-
-local function Section(text)
-
-    local x = Instance.new("TextLabel")
-    x.Size = UDim2.new(1,-5,0,24)
-    x.BackgroundTransparency = 1
-    x.Text = text
-    x.TextColor3 = Color3.fromRGB(130,130,155)
-    x.TextSize = 10
-    x.Font = Enum.Font.GothamBold
-    x.TextXAlignment = Enum.TextXAlignment.Left
-    x.Parent = Scroll
-
-end
-
-local function Button(text,callback)
-
-    local b = Instance.new("TextButton")
-    b.Size = UDim2.new(1,-5,0,42)
-    b.BackgroundColor3 = Color3.fromRGB(25,25,34)
-    b.Text = text
-    b.TextColor3 = Color3.fromRGB(235,235,245)
-    b.TextSize = 12
-    b.Font = Enum.Font.GothamMedium
-    b.BorderSizePixel = 0
-    b.AutoButtonColor = false
-    b.Parent = Scroll
-
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0,9)
-    c.Parent = b
-
-    b.Activated:Connect(function()
-        pcall(callback)
-    end)
-
-    return b
-end
-
-local function Toggle(text,start,callback)
-
-    local state = start
-
-    local b = Button(text.." : "..(state and "ON" or "OFF"),function()
-
-        state = not state
-
-        b.Text = text.." : "..(state and "ON" or "OFF")
-
-        pcall(function()
-            callback(state)
-        end)
-
-    end)
-
-    return b
-end
-
---========================================================
--- PRESETS
---========================================================
-
-local function Ultra()
-
-    Bloom.Enabled = true
-    Bloom.Intensity = .45
-    Bloom.Size = 28
-    Bloom.Threshold = .85
-
-    Color.Enabled = true
-    Color.Brightness = .02
-    Color.Contrast = .15
-    Color.Saturation = .12
-
-    Atmosphere.Enabled = true
-    Atmosphere.Density = .22
-    Atmosphere.Haze = .7
-    Atmosphere.Glare = .06
-
-    SunRays.Enabled = true
-    SunRays.Intensity = .12
-    SunRays.Spread = .9
-
-    DOF.Enabled = false
-
+local function moveProp(prop, targetCFrame)
+    if not prop or not prop.Parent then return end
+    local setCF = remoteCache[prop]
+    if not setCF or not setCF.Parent then
+        setCF = findSetCurrentCFrame(prop)
+        remoteCache[prop] = setCF
+    end
+    if setCF then
+        pcall(function() setCF:InvokeServer(targetCFrame) end)
+        return
+    end
     pcall(function()
-        Lighting.GlobalShadows = true
-        Lighting.Brightness = 3
-        Lighting.ExposureCompensation = .1
+        if prop:IsA("BasePart") then prop.CFrame = targetCFrame
+        elseif prop:IsA("Model") then prop:PivotTo(targetCFrame) end
     end)
-
 end
 
-local function Cinematic()
-
-    Bloom.Enabled = true
-    Bloom.Intensity = .5
-    Bloom.Size = 30
-    Bloom.Threshold = .8
-
-    Color.Enabled = true
-    Color.Brightness = -.02
-    Color.Contrast = .2
-    Color.Saturation = .08
-
-    Atmosphere.Enabled = true
-    Atmosphere.Density = .28
-    Atmosphere.Haze = 1
-    Atmosphere.Glare = .08
-
-    SunRays.Enabled = true
-    SunRays.Intensity = .15
-
-    DOF.Enabled = true
-
-    pcall(function()
-        Lighting.GlobalShadows = true
-        Lighting.Brightness = 2.5
-        Lighting.ExposureCompensation = 0
-    end)
-
+-- Sends the whole formation without waiting between props. This keeps the
+-- aura synchronized instead of visibly moving one prop at a time.
+local function movePropsTogether(items)
+    for _, item in ipairs(items) do
+        task.spawn(function() moveProp(item[1], item[2]) end)
+    end
 end
 
-local function Natural()
+local function getCharacter()
+    local character = LocalPlayer.Character
 
-    Bloom.Enabled = true
-    Bloom.Intensity = .2
-    Bloom.Size = 18
-    Bloom.Threshold = 1
+    if not character or not character.Parent then
+        return nil
+    end
 
-    Color.Enabled = true
-    Color.Brightness = 0
-    Color.Contrast = .05
-    Color.Saturation = .04
-
-    Atmosphere.Enabled = true
-    Atmosphere.Density = .17
-    Atmosphere.Haze = .5
-    Atmosphere.Glare = .03
-
-    SunRays.Enabled = true
-    SunRays.Intensity = .05
-
-    DOF.Enabled = false
-
+    return character
 end
 
-local function Performance()
 
-    Bloom.Enabled = false
-    Atmosphere.Enabled = false
-    SunRays.Enabled = false
-    DOF.Enabled = false
+-- =========================================================
+-- AURA ENGINE V3
+-- Smooth, deterministic and visually different formations.
+-- Styles are cached once per aura to avoid rebuilding tables
+-- every frame.
+-- =========================================================
 
-    Color.Enabled = true
-    Color.Brightness = 0
-    Color.Contrast = 0
-    Color.Saturation = 0
+local auraStyleCache = {}
 
-    pcall(function()
-        Lighting.GlobalShadows = false
-    end)
-
+local function auraHash(text)
+    local h = 0
+    for i = 1, #text do
+        h = (h * 31 + string.byte(text, i)) % 100000
+    end
+    return h
 end
 
---========================================================
--- BUTTONS
---========================================================
+local function getAuraStyle(auraKey, config)
+    local cached = auraStyleCache[auraKey]
+    if cached then
+        return cached
+    end
 
-Section("GRAPHICS PRESETS")
+    local h = auraHash(tostring(auraKey) .. "|" .. tostring(config.name))
+    cached = {
+        style = (h % 14) + 1,
+        phase = (h % 628) / 100,
+        wave = 0.7 + ((math.floor(h / 17) % 100) / 100) * 1.8,
+        height = 0.7 + ((math.floor(h / 29) % 100) / 100) * 2.0,
+        twist = ((math.floor(h / 37) % 360) - 180) * math.pi / 180,
+        tilt = ((math.floor(h / 43) % 28) - 14) * math.pi / 180,
+        direction = (h % 2 == 0) and 1 or -1,
+        petals = 3 + (h % 8),
+        inner = 0.55 + ((math.floor(h / 53) % 25) / 100),
+        outer = 0.95 + ((math.floor(h / 61) % 30) / 100),
+        speedMul = 0.78 + ((math.floor(h / 71) % 45) / 100),
+    }
+    auraStyleCache[auraKey] = cached
+    return cached
+end
 
-Button("⚡  ULTRA REALISTIC",Ultra)
-Button("🎬  CINEMATIC",Cinematic)
-Button("🌤  NATURAL",Natural)
-Button("🚀  PERFORMANCE",Performance)
+local function getAuraCFrame(auraKey, config, index, total, elapsed, center)
+    local speed = tonumber(config.speed) or 0.5
+    local baseRadius = tonumber(config.radius) or 12
+    local baseY = tonumber(config.offsetY) or 0
+    local rotation = math.rad(tonumber(config.rotation) or 0)
+    local style = getAuraStyle(auraKey, config)
 
-Section("VISUAL EFFECTS")
+    local t = (index - 1) / math.max(total, 1)
+    local baseAngle = math.pi * 2 * t
+    local time = elapsed * speed * style.speedMul * style.direction
+    local angle = baseAngle + time + rotation + style.phase
 
-Toggle("Bloom",true,function(v)
-    Bloom.Enabled = v
-end)
+    local radius = baseRadius
+    local y = baseY
 
-Toggle("Sun Rays",true,function(v)
-    SunRays.Enabled = v
-end)
+    if style.style == 1 then
+        -- Smooth breathing halo
+        local breath = 0.5 + 0.5 * math.sin(time * 1.65 + index * 0.22)
+        radius = baseRadius * (0.90 + breath * 0.16)
+        y = baseY + math.sin(time * 1.9 + index * 0.35) * 0.55
 
-Toggle("Atmosphere",true,function(v)
-    Atmosphere.Enabled = v
-end)
+    elseif style.style == 2 then
+        -- Flower / petals
+        local petal = math.sin(angle * style.petals + time * 0.55)
+        radius = baseRadius * (0.72 + math.abs(petal) * 0.34)
+        y = baseY + math.cos(angle * 2 + time) * 0.65
 
-Toggle("Depth Of Field",false,function(v)
-    DOF.Enabled = v
-end)
+    elseif style.style == 3 then
+        -- Helix
+        radius = baseRadius * (0.76 + 0.20 * math.sin(t * math.pi * 2 + time))
+        y = baseY + math.sin(t * math.pi * 2 + time * 1.35) * style.height * 1.55
 
-Section("SYSTEM")
+    elseif style.style == 4 then
+        -- Star
+        local star = math.abs(math.cos(angle * 5 + time * 0.65))
+        radius = baseRadius * (0.56 + 0.55 * star)
+        y = baseY + math.sin(time * 1.7 + index * 0.52) * 0.85
 
-Button("↻  RESET / ULTRA",function()
-    Ultra()
-end)
+    elseif style.style == 5 then
+        -- Infinity / double orbit
+        local side = (index % 2 == 0) and 1 or -1
+        radius = baseRadius * ((side == 1) and style.outer or style.inner)
+        angle = angle + side * (math.pi / 8)
+        y = baseY + side * 1.45 + math.sin(time * 1.2 + index) * 0.4
 
-Button("✕  CLOSE MOD",function()
+    elseif style.style == 6 then
+        -- Flowing wave
+        radius = baseRadius + math.sin(angle * 3 + time * 1.9) * (1.1 + style.wave)
+        y = baseY + math.sin(angle * 2 + time * 1.4) * style.height
 
-    DeleteEffect("MANI_Bloom")
-    DeleteEffect("MANI_Color")
-    DeleteEffect("MANI_Atmosphere")
-    DeleteEffect("MANI_SunRays")
-    DeleteEffect("MANI_DOF")
+    elseif style.style == 7 then
+        -- Vortex
+        local depth = (t - 0.5) * 2
+        radius = baseRadius * (0.54 + 0.76 * (1 - math.abs(depth) * 0.28))
+        angle = angle + depth * 2.35 + time * 0.38
+        y = baseY + depth * style.height * 2.2
 
-    ScreenGui:Destroy()
+    elseif style.style == 8 then
+        -- Crown
+        local crown = math.sin(angle * 4 + time * 0.8)
+        radius = baseRadius * (0.70 + 0.32 * math.max(crown, 0))
+        y = baseY + 1.5 + math.max(crown, 0) * 2.7
 
-end)
+    elseif style.style == 9 then
+        -- Comet
+        local trail = t
+        radius = baseRadius * (0.58 + trail * 0.50)
+        angle = angle - trail * 1.45
+        y = baseY + math.sin(time * 1.45 + trail * math.pi * 2) * 1.25
 
---========================================================
--- CANVAS SIZE
---========================================================
+    elseif style.style == 10 then
+        -- Galaxy arms
+        local arm = math.sin(t * math.pi * 4 + time)
+        radius = baseRadius * (0.52 + 0.58 * math.abs(arm))
+        angle = angle + arm * 1.05
+        y = baseY + math.sin(t * math.pi * 4 + time * 0.75) * 2.15
 
-task.wait()
+    elseif style.style == 11 then
+        -- Diamond pulse
+        local diamond = 1 - math.abs(math.sin(angle * 4 + time))
+        radius = baseRadius * (0.62 + diamond * 0.58)
+        y = baseY + math.cos(angle * 4 + time) * 1.0
 
-Scroll.CanvasSize = UDim2.new(
-    0,
-    0,
-    0,
-    Layout.AbsoluteContentSize.Y + 15
-)
+    elseif style.style == 12 then
+        -- Three orbital lanes
+        local lane = (index % 3) - 1
+        radius = baseRadius * (1 + lane * 0.17)
+        angle = angle + lane * 0.82
+        y = baseY + lane * 1.65 + math.sin(time * 1.6 + index) * 0.5
 
-Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    elseif style.style == 13 then
+        -- Ripple sphere
+        local wave = math.sin(t * math.pi * 2 + time * 1.2)
+        radius = baseRadius * (0.72 + math.abs(wave) * 0.42)
+        y = baseY + math.cos(t * math.pi * 4 + time) * 2.0
 
-    Scroll.CanvasSize = UDim2.new(
-        0,
-        0,
-        0,
-        Layout.AbsoluteContentSize.Y + 15
+    else
+        -- Slow orbital ribbon
+        local ribbon = math.sin(t * math.pi * 2 + time)
+        radius = baseRadius * (0.82 + ribbon * 0.20)
+        angle = angle + math.sin(time * 0.55) * 0.65
+        y = baseY + ribbon * 2.4
+    end
+
+    -- Original aura type is still respected as a secondary motion layer.
+    if config.type == "wave" then
+        radius += math.sin(angle * 3 + time * 1.65) * 1.25
+        y += math.sin(time * 2 + index * 0.6) * 0.55
+    elseif config.type == "spiral" then
+        radius += t * 2.8
+        y += (t - 0.5) * 2.0
+        angle += t * 1.8
+    elseif config.type == "star" then
+        radius *= (index % 2 == 0) and 0.68 or 1.08
+    elseif config.type == "double" then
+        local side = (index % 2 == 0) and 1 or -1
+        radius *= (side == 1) and 1.12 or 0.82
+        y += side * 0.72
+    end
+
+    -- Universal micro-motion prevents dead/static frames.
+    radius += math.sin(elapsed * speed * 2.0 + index * 0.31 + style.phase) * 0.28
+    y += math.cos(elapsed * speed * 1.65 + index * 0.43) * 0.20
+
+    local position = center + Vector3.new(
+        math.cos(angle) * radius,
+        y,
+        math.sin(angle) * radius
     )
 
-end)
+    local look = CFrame.lookAt(position, center)
+    return look * CFrame.Angles(
+        math.sin(angle + style.twist) * style.tilt,
+        angle * 0.12,
+        math.cos(angle + style.phase) * style.tilt
+    )
+end
 
---========================================================
--- DRAG
---========================================================
+local function runAuraAnimation(auraKey, config, token)
+    local updateInterval = 0.055
 
-local dragging = false
-local dragStart
-local startPosition
+    while auraRunning
+        and currentAura == auraKey
+        and auraToken == token do
 
-Header.InputBegan:Connect(function(input)
+        local character = getCharacter()
 
-    if input.UserInputType == Enum.UserInputType.MouseButton1
-    or input.UserInputType == Enum.UserInputType.Touch then
+        if not character then
+            task.wait(0.25)
+            continue
+        end
 
-        dragging = true
-        dragStart = input.Position
-        startPosition = Main.Position
+        local hrp = character:FindFirstChild("HumanoidRootPart")
 
+        if not hrp then
+            task.wait(0.1)
+            continue
+        end
+
+        -- Refresh props if they were recreated by the game.
+        if not propFolder
+            or not propFolder.Parent
+            or #propList == 0 then
+            findProps()
+        end
+
+        local total = math.min(totalProps, #propList)
+
+        if total > 0 then
+            centerPosition = hrp.Position
+            local elapsed = os.clock()
+
+            local batch = {}
+            for index = 1, total do
+                if not auraRunning or currentAura ~= auraKey or auraToken ~= token then break end
+                local prop = propList[index]
+                if prop and prop.Parent then
+                    batch[#batch + 1] = {prop, getAuraCFrame(auraKey, config, index, total, elapsed, centerPosition)}
+                end
+            end
+            movePropsTogether(batch)
+        end
+
+        task.wait(updateInterval)
     end
+end
 
-end)
+local function stopAura()
+    auraRunning = false
+    currentAura = nil
 
-Header.InputEnded:Connect(function(input)
+    -- Invalidates any previous animation loop.
+    auraToken += 1
 
-    if input.UserInputType == Enum.UserInputType.MouseButton1
-    or input.UserInputType == Enum.UserInputType.Touch then
+    -- Do not coroutine.close() a running thread. Let the token/state
+    -- condition end it safely.
+    auraThread = nil
+end
 
-        dragging = false
+local function startAura(auraKey)
+    stopSnake()
+    local config = AllAuraConfigs[auraKey]
 
-    end
-
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-
-    if not dragging then return end
-
-    if input.UserInputType ~= Enum.UserInputType.MouseMovement
-    and input.UserInputType ~= Enum.UserInputType.Touch then
+    if not config then
+        warn("[MANI AURA] Unknown aura:", auraKey)
         return
     end
 
-    local delta = input.Position - dragStart
+    stopAura()
 
-    Main.Position = UDim2.new(
-        startPosition.X.Scale,
-        startPosition.X.Offset + delta.X,
-        startPosition.Y.Scale,
-        startPosition.Y.Offset + delta.Y
+    if not findProps() then
+        print("[MANI AURA] No owned props found in WorkspaceCom/001_TrafficCones")
+        return
+    end
+
+    if totalProps <= 0 then
+        print("[MANI AURA] No usable props found")
+        return
+    end
+
+    currentAura = auraKey
+    auraRunning = true
+
+    auraToken += 1
+    local myToken = auraToken
+
+    auraThread = task.spawn(function()
+        runAuraAnimation(auraKey, config, myToken)
+    end)
+
+    print(
+        config.color
+        .. " "
+        .. config.name
+        .. " activated with "
+        .. totalProps
+        .. " props"
     )
-
-end)
-
---========================================================
--- MINIMIZE
---========================================================
-
-local minimized = false
-
-Min.Activated:Connect(function()
-
-    minimized = not minimized
-
-    if minimized then
-
-        Scroll.Visible = false
-        Main.Size = UDim2.fromOffset(380,60)
-        Min.Text = "+"
-
-    else
-
-        Scroll.Visible = true
-        Main.Size = UDim2.fromOffset(380,480)
-        Min.Text = "—"
-
-    end
-
-end)
-
---========================================================
--- MOBILE RESPONSIVE
---========================================================
-
-local function Responsive()
-
-    local camera = workspace.CurrentCamera
-
-    if not camera then return end
-
-    local size = camera.ViewportSize
-
-    if size.X < 600 then
-
-        Main.Size = UDim2.new(.88,0,0,450)
-        Main.Position = UDim2.new(.06,0,.5,-225)
-
-    else
-
-        Main.Size = UDim2.fromOffset(380,480)
-        Main.Position = UDim2.new(.5,-190,.5,-240)
-
-    end
-
 end
 
-Responsive()
+local function resetProps()
+    stopAura()
 
+    if not findProps() then
+        return false
+    end
+
+    local character = getCharacter()
+    if not character then
+        return false
+    end
+
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then
+        return false
+    end
+
+    local resetCFrame = CFrame.new(hrp.Position)
+
+    for _, prop in ipairs(propList) do
+        moveProp(prop, resetCFrame)
+        task.wait(0.03)
+    end
+
+    return true
+end
+
+
+-- =========================================================
+-- SNAKE ENGINE V3
+-- Up to 25 owned props become one smooth snake.
+-- 20 controls/features are exposed in the Snake tab.
+-- =========================================================
+
+local snakeRunning = false
+local snakeAutoTravel = false
+local snakeFollowPlayer = true
+local snakeReverse = false
+local snakeWave = true
+local snakePatrol = false
+local snakeSmoothTurns = true
+local snakeHeadLead = true
+local snakeBreathing = true
+local snakeTailWhip = true
+local snakeSpiralTravel = false
+local snakeRandomStops = true
+local snakeHover = false
+local snakeLength = 15
+local snakeSpeed = 8
+local snakeSpacing = 2.15
+local snakeWaveHeight = 0.65
+local snakeTurnSmooth = 0.18
+local snakeTarget = nil
+local snakeHeadPosition = nil
+local snakeNextTargetAt = 0
+local snakeHeading = nil
+local snakeTravelSeed = 0
+local snakeTrail = {}
+
+local function getSnakeProps()
+    if not propFolder or not propFolder.Parent or #propList == 0 then findProps() end
+    local out = {}
+    local count = math.clamp(tonumber(snakeLength) or 15, 1, math.min(25, #propList))
+    for i=1,count do if propList[i] and propList[i].Parent then out[#out+1]=propList[i] end end
+    return out
+end
+
+local function chooseSnakeTarget(origin)
+    snakeTravelSeed += 1
+    local seed = snakeTravelSeed * 17 + math.floor(os.clock()*10)
+    local angle = math.rad((seed*47)%360)
+    local distance = 22 + ((seed*13)%34)
+    local y = snakeHover and (2+((seed*7)%5)) or 0
+    return origin + Vector3.new(math.cos(angle)*distance,y,math.sin(angle)*distance)
+end
+
+local function sampleTrail(secondsAgo, fallback)
+    if #snakeTrail == 0 then return fallback end
+    local wanted = os.clock() - secondsAgo
+    for i=1,#snakeTrail-1 do
+        local newer, older = snakeTrail[i], snakeTrail[i+1]
+        if newer.t >= wanted and older.t <= wanted then
+            local span = math.max(newer.t-older.t, 0.001)
+            local a = math.clamp((wanted-older.t)/span,0,1)
+            return older.p:Lerp(newer.p,a)
+        end
+    end
+    return snakeTrail[#snakeTrail].p
+end
+
+local function moveSnake()
+    local character=getCharacter()
+    local hrp=character and character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local props=getSnakeProps(); local count=#props
+    if count==0 then return end
+    local now=os.clock(); local playerPos=hrp.Position; local forward=hrp.CFrame.LookVector
+    local desiredHead
+    if snakeAutoTravel then
+        if not snakeTarget or now>=snakeNextTargetAt or (snakeTarget-playerPos).Magnitude<7 then
+            snakeTarget=chooseSnakeTarget(playerPos)
+            snakeNextTargetAt=now+(snakeRandomStops and 4.5 or 8)
+        end
+        desiredHead=snakeTarget
+    else
+        desiredHead=playerPos+(snakeHeadLead and forward*2.5 or Vector3.zero)
+        if snakeHover then desiredHead += Vector3.new(0,2.2,0) end
+    end
+    snakeHeadPosition=snakeHeadPosition and snakeHeadPosition:Lerp(desiredHead,math.clamp(1-math.exp(-math.max(snakeSpeed,1)*0.10),0.08,0.9)) or desiredHead
+    local wantedDir=(desiredHead-playerPos)
+    if wantedDir.Magnitude<0.01 then wantedDir=forward end
+    wantedDir=wantedDir.Unit
+    snakeHeading=snakeHeading and snakeHeading:Lerp(wantedDir,math.clamp(snakeTurnSmooth,0.03,0.5)).Unit or wantedDir
+    local head=snakeHeadPosition
+    table.insert(snakeTrail,1,{t=now,p=head})
+    while #snakeTrail>160 do table.remove(snakeTrail) end
+    local batch={}
+    for i=1,count do
+        local segIndex=snakeReverse and (count-i) or (i-1)
+        local delay=(segIndex*snakeSpacing)/math.max(snakeSpeed,1)
+        local pos=sampleTrail(delay,head-snakeHeading*(segIndex*snakeSpacing))
+        local side=Vector3.new(-snakeHeading.Z,0,snakeHeading.X)
+        if snakeWave then pos += side*math.sin(now*snakeSpeed*0.32-segIndex*0.72)*(snakeWaveHeight*(1+segIndex/count*0.45)) end
+        if snakeSpiralTravel then local q=segIndex/count*math.pi*1.5; pos += Vector3.new(math.cos(q+now)*0.5,math.sin(q+now*0.8)*0.3,math.sin(q+now)*0.5) end
+        if snakeBreathing then pos += Vector3.new(0,math.sin(now*2-segIndex*0.35)*0.12,0) end
+        if snakeTailWhip and segIndex>math.max(2,count-6) then pos += side*math.sin(now*4+segIndex)*((segIndex-(count-6))/6)*1.0 end
+        local nextPos=sampleTrail(math.max(0,delay-0.04),pos+snakeHeading*0.3)
+        local cf=(nextPos-pos).Magnitude>0.01 and CFrame.lookAt(pos,nextPos) or CFrame.new(pos)
+        batch[#batch+1]={props[i],cf}
+    end
+    movePropsTogether(batch)
+end
+
+local function startSnake()
+    if snakeRunning then return end
+    if not findProps() then return end
+    snakeRunning=true; snakeTarget=nil; snakeHeadPosition=nil; snakeHeading=nil; snakeTrail={}
+    task.spawn(function() while snakeRunning do pcall(moveSnake); task.wait(0.055) end end)
+end
+
+stopSnake=function()
+    snakeRunning=false; snakeTarget=nil; snakeHeadPosition=nil; snakeHeading=nil; snakeTrail={}
+end
+
+-- =========================================================
+-- ROPE ENGINE
+-- =========================================================
+local ropeP1=""; local ropeP2=""; local ropeIncludeMe=false; local ropeRunning=false
+local ropeWave=0.6; local ropeSag=0.18; local ropeSegments=15; local ropeSpeed=3
+
+local function getPlayerByName(name)
+    name=string.lower(tostring(name or "")); if name=="" then return nil end
+    for _,plr in ipairs(Players:GetPlayers()) do
+        if string.find(string.lower(plr.Name),name,1,true) then return plr end
+    end
+end
+local function getHRP(plr) local c=plr and plr.Character; return c and c:FindFirstChild("HumanoidRootPart") end
+local function ropePoint(t,a,b)
+    local mid=(a+b)*0.5; local sag=math.clamp((a-b).Magnitude*ropeSag,2,14)
+    mid-=Vector3.new(0,sag,0)
+    return a:Lerp(mid,t):Lerp(mid:Lerp(b,t),t)
+end
+local function stopRope() ropeRunning=false end
+local function startRope()
+    if ropeRunning then return end
+    if not findProps() then return end
+    ropeRunning=true
+    task.spawn(function()
+        while ropeRunning do
+            local p1=ropeIncludeMe and LocalPlayer or getPlayerByName(ropeP1)
+            local p2=getPlayerByName(ropeP2)
+            local h1,h2=getHRP(p1),getHRP(p2); local props=getSnakeProps()
+            if h1 and h2 and #props>0 then
+                local a,b=h1.Position,h2.Position; local dist=(a-b).Magnitude
+                local count=math.min(#props,math.clamp(math.floor(dist/2),4,math.max(4,ropeSegments)))
+                local batch={}; local now=os.clock()
+                for i=1,count do
+                    local t=i/(count+1); local pos=ropePoint(t,a,b)+Vector3.new(0,math.sin(t*math.pi*4+now*ropeSpeed)*ropeWave,0)
+                    batch[#batch+1]={props[i],CFrame.lookAt(pos,b)}
+                end
+                movePropsTogether(batch)
+            end
+            task.wait(0.055)
+        end
+    end)
+end
+
+-- Mobile-first sizing hint. Roblox exposes display size categories for UI adaptation.
 pcall(function()
-
-    workspace.CurrentCamera:GetPropertyChangedSignal(
-        "ViewportSize"
-    ):Connect(Responsive)
-
+    local GuiService = game:GetService("GuiService")
+    if GuiService.ViewportDisplaySize == Enum.DisplaySize.Small then
+        isFull = false
+    end
 end)
 
---========================================================
--- START
---========================================================
+-- GUI handling
 
-Ultra()
+-- ============================================================
+-- REDZLIB V5 GUI MIGRATION
+-- Original MANI prop/aura/snake/rope engine is kept above.
+-- Only the GUI layer is replaced with native RedzLib V5 controls.
+-- ============================================================
 
-print("================================")
-print("MANI GRAPHICS MOD V1.1 LOADED")
-print("GUI PARENT:",GuiParent:GetFullName())
-print("================================")
-```
+local RedzLib = loadstring(game:HttpGet(
+    "https://raw.githubusercontent.com/RedzLib/RedzLibV5/refs/heads/main/Source.lua"
+))()
+
+local Window = RedzLib:MakeWindow({
+    Title = "MANI PROP GUI V2",
+    SubTitle = "RedzLib V5 • by MANISH_K05",
+})
+
+-- ------------------------------------------------------------
+-- Helpers
+-- ------------------------------------------------------------
+local function notify(title, content)
+    print("[MANI GUI] " .. tostring(title) .. ": " .. tostring(content))
+end
+
+local function stopEverything()
+    pcall(stopAura)
+    pcall(stopSnake)
+    pcall(stopRope)
+end
+
+local function makeAuraTab(title, icon, colorKey)
+    local tab = Window:MakeTab({title, icon})
+    tab:AddSection(title)
+    tab:AddParagraph({
+        "MANI PROP",
+        "Select an aura below. Starting a new aura stops the previous aura/snake."
+    })
+
+    local entries = {}
+    for key, config in pairs(AllAuraConfigs) do
+        if config.color == colorKey then
+            entries[#entries + 1] = {key = key, name = config.name or key}
+        end
+    end
+    table.sort(entries, function(a,b) return a.name < b.name end)
+
+    for _, item in ipairs(entries) do
+        tab:AddButton({
+            item.name,
+            "Activate " .. item.name,
+            function()
+                startAura(item.key)
+                notify("Aura", item.name .. " activated")
+            end
+        })
+    end
+
+    tab:AddSection("CONTROL")
+    tab:AddButton({
+        "Stop Aura",
+        "Stop the current aura animation",
+        function()
+            stopAura()
+            notify("Aura", "Stopped")
+        end
+    })
+    tab:AddButton({
+        "Reset Props",
+        "Return owned props to your character position",
+        function()
+            if resetProps() then notify("Props", "Reset complete") end
+        end
+    })
+    return tab
+end
+
+-- ------------------------------------------------------------
+-- Aura tabs: dynamically uses every config from the original file.
+-- This avoids losing newly added aura configs.
+-- ------------------------------------------------------------
+makeAuraTab("Common", "home", "🟢")
+makeAuraTab("Uncommon", "gem", "🔵")
+makeAuraTab("Rare", "crown", "🟣")
+makeAuraTab("Epic", "flame", "🟠")
+makeAuraTab("Legendary", "star", "🔴")
+makeAuraTab("Mythic", "infinity", "🟡")
+makeAuraTab("Secret", "eye", "💠")
+
+-- ------------------------------------------------------------
+-- Snake
+-- ------------------------------------------------------------
+local SnakeTab = Window:MakeTab({"Snake", "box"})
+SnakeTab:AddSection("SNAKE ENGINE V3")
+SnakeTab:AddParagraph({
+    "MANI SNAKE",
+    "Up to 25 owned props become one smooth snake."
+})
+
+SnakeTab:AddToggle({
+    "Snake Enabled",
+    "Start/stop the snake engine",
+    false,
+    function(v)
+        if v then startSnake() else stopSnake() end
+    end
+})
+
+SnakeTab:AddToggle({
+    "Auto Travel",
+    "Move toward generated destinations",
+    false,
+    function(v)
+        snakeAutoTravel = v
+        snakeTarget = nil
+    end
+})
+
+SnakeTab:AddToggle({
+    "Follow Player",
+    "Keep the snake centered around the player",
+    true,
+    function(v) snakeFollowPlayer = v end
+})
+
+SnakeTab:AddSlider({
+    "Snake Length", 1, 25, 1, 15,
+    function(v) snakeLength = math.clamp(math.floor(v + 0.5), 1, 25) end
+})
+
+SnakeTab:AddSlider({
+    "Travel Speed", 2, 20, 1, 8,
+    function(v) snakeSpeed = v end
+})
+
+SnakeTab:AddSlider({
+    "Body Spacing", 10, 40, 1, 22,
+    function(v) snakeSpacing = v / 10 end
+})
+
+SnakeTab:AddToggle({
+    "Realistic Body Wave", "Wave motion through the body", true,
+    function(v) snakeWave = v end
+})
+
+SnakeTab:AddSlider({
+    "Wave Strength", 0, 200, 1, 65,
+    function(v) snakeWaveHeight = v / 100 end
+})
+
+SnakeTab:AddToggle({
+    "Smooth Turning", "Smooth heading changes", true,
+    function(v) snakeSmoothTurns = v end
+})
+
+SnakeTab:AddSlider({
+    "Turn Smoothness", 2, 50, 1, 12,
+    function(v) snakeTurnSmooth = v / 100 end
+})
+
+SnakeTab:AddToggle({
+    "Head Lead", "Move the snake head ahead of the player", true,
+    function(v) snakeHeadLead = v end
+})
+
+SnakeTab:AddToggle({
+    "Hover Mode", "Lift the snake above the ground", false,
+    function(v) snakeHover = v end
+})
+
+SnakeTab:AddToggle({
+    "Body Breathing", "Small vertical body movement", true,
+    function(v) snakeBreathing = v end
+})
+
+SnakeTab:AddToggle({
+    "Tail Whip", "Extra tail movement", true,
+    function(v) snakeTailWhip = v end
+})
+
+SnakeTab:AddToggle({
+    "Spiral Travel", "Add spiral movement", false,
+    function(v) snakeSpiralTravel = v end
+})
+
+SnakeTab:AddToggle({
+    "Random Destinations", "Choose new destinations automatically", true,
+    function(v) snakeRandomStops = v; snakeTarget = nil end
+})
+
+SnakeTab:AddToggle({
+    "Reverse Body", "Reverse segment order", false,
+    function(v) snakeReverse = v end
+})
+
+SnakeTab:AddToggle({
+    "Patrol Mode", "Enable auto travel patrol", false,
+    function(v)
+        snakePatrol = v
+        if v then snakeAutoTravel = true end
+    end
+})
+
+SnakeTab:AddButton({
+    "New Random Destination",
+    "Immediately choose a new destination",
+    function()
+        local character = getCharacter()
+        local hrp = character and character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            snakeTarget = chooseSnakeTarget(hrp.Position)
+            snakeNextTargetAt = 0
+        end
+    end
+})
+
+SnakeTab:AddButton({
+    "Stop Snake",
+    "Stop the snake engine",
+    function() stopSnake() end
+})
+
+SnakeTab:AddSection("PERFORMANCE")
+SnakeTab:AddParagraph({
+    "PERFORMANCE",
+    "Uses your owned props only. Maximum 25 snake segments."
+})
+
+-- ------------------------------------------------------------
+-- Rope
+-- ------------------------------------------------------------
+local RopeTab = Window:MakeTab({"Rope", "link"})
+RopeTab:AddSection("ROPE ENGINE")
+RopeTab:AddParagraph({
+    "MANI ROPE",
+    "Connect props between two players."
+})
+
+RopeTab:AddTextBox({
+    "Player 1",
+    "",
+    false,
+    function(v) ropeP1 = tostring(v) end,
+    "Username"
+})
+
+RopeTab:AddTextBox({
+    "Player 2",
+    "",
+    false,
+    function(v) ropeP2 = tostring(v) end,
+    "Username"
+})
+
+RopeTab:AddToggle({
+    "Include Me",
+    "Use your character as Player 1",
+    false,
+    function(v) ropeIncludeMe = v end
+})
+
+RopeTab:AddButton({
+    "Start Rope",
+    "Start rope animation",
+    function() startRope() end
+})
+
+RopeTab:AddButton({
+    "Stop Rope",
+    "Stop rope animation",
+    function() stopRope() end
+})
+
+RopeTab:AddSlider({
+    "Wave", 0, 200, 1, 60,
+    function(v) ropeWave = v / 100 end
+})
+
+RopeTab:AddSlider({
+    "Sag", 5, 50, 1, 18,
+    function(v) ropeSag = v / 100 end
+})
+
+RopeTab:AddSlider({
+    "Max Segments", 4, 25, 1, 15,
+    function(v) ropeSegments = math.floor(v + 0.5) end
+})
+
+RopeTab:AddSlider({
+    "Wave Speed", 1, 80, 1, 30,
+    function(v) ropeSpeed = v / 10 end
+})
+
+-- ------------------------------------------------------------
+-- Settings / profile
+-- ------------------------------------------------------------
+local SettingsTab = Window:MakeTab({"Settings", "settings"})
+SettingsTab:AddSection("PROFILE")
+
+local propParagraph = SettingsTab:AddParagraph({
+    "Props",
+    "Checking..."
+})
+
+local profileParagraph = SettingsTab:AddParagraph({
+    "PROFILE CARD",
+    "Display: " .. LocalPlayer.DisplayName
+        .. "\nUsername: @" .. LocalPlayer.Name
+        .. "\nUserId: " .. tostring(LocalPlayer.UserId)
+        .. "\nStatus: Ready\nAura: None"
+})
+
+local function updateProfile()
+    pcall(function()
+        local cfg = currentAura and AllAuraConfigs[currentAura]
+        local auraText = cfg and cfg.name or "None"
+        local status = snakeRunning and "Snake Active" or (ropeRunning and "Rope Active" or "Ready")
+        profileParagraph:SetContent(
+            "Display: " .. LocalPlayer.DisplayName
+            .. "\nUsername: @" .. LocalPlayer.Name
+            .. "\nUserId: " .. tostring(LocalPlayer.UserId)
+            .. "\nStatus: " .. status
+            .. "\nAura: " .. auraText
+        )
+    end)
+end
+
+task.spawn(function()
+    while task.wait(1) do
+        pcall(function()
+            if findProps() then
+                propParagraph:SetContent(#propList .. " found • using " .. totalProps)
+            else
+                propParagraph:SetContent("No props")
+            end
+            updateProfile()
+        end)
+    end
+end)
+
+SettingsTab:AddButton({
+    "Refresh Props",
+    "Re-scan owned props",
+    function()
+        findProps()
+        notify("Props", tostring(#propList) .. " found • using " .. tostring(totalProps))
+    end
+})
+
+SettingsTab:AddButton({
+    "Stop Everything",
+    "Stop aura, snake and rope",
+    function()
+        stopEverything()
+        notify("MANI", "All systems stopped")
+    end
+})
+
+SettingsTab:AddButton({
+    "Reset Props",
+    "Reset props to your character position",
+    function() resetProps() end
+})
+
+SettingsTab:AddSection("WINDOW")
+SettingsTab:AddButton({
+    "Minimize / Restore",
+    "Use RedzLib's native minimize button",
+    function()
+        Window:Minimize()
+    end
+})
+
+SettingsTab:AddSection("COMMUNITY")
+SettingsTab:AddParagraph({
+    "MANI HUB DISCORD",
+    "Official community / updates"
+})
+
+SettingsTab:AddDiscordInvite({
+    "MANI HUB",
+    "rbxassetid://10723426722",
+    "https://discord.gg/YOUR_INVITE",
+    Desc = "Official MANI HUB Discord • Updates • Support • Community"
+})
+
+SettingsTab:AddParagraph({
+    "MANI GUI V2",
+    "RedzLib V5 • by MANISH_K05"
+})
+
+-- Native RedzLib floating minimize button.
+Window:AddMinimizeButton({
+    Button = {
+        Image = "rbxassetid://10709782230",
+        BackgroundTransparency = 0.1
+    }
+})
+
+-- Respawn behavior from the original GUI.
+LocalPlayer.CharacterAdded:Connect(function()
+    local savedAura = currentAura
+
+    stopSnake()
+    stopRope()
+
+    if savedAura then
+        stopAura()
+        task.wait(1)
+        if LocalPlayer.Character then
+            startAura(savedAura)
+        end
+    else
+        stopAura()
+    end
+end)
+
+findProps()
+print("MANI PROP GUI V2 - REDZLIB V5 LOADED")
+
