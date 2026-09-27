@@ -749,13 +749,30 @@ end)
 -- ============================================================
 
 local RedzLib = nil
-local redzLoaded, redzResult = pcall(function()
-    return loadstring(game:HttpGet("https://raw.githubusercontent.com/RedzLib/RedzLibV5/refs/heads/main/Source.lua"))()
-end)
-if redzLoaded and redzResult then
-    RedzLib = redzResult
-else
-    warn("[MANI PROP] RedzLib V5 failed to load:", redzResult)
+local REDZ_URL = "https://raw.githubusercontent.com/RedzLib/RedzLibV5/refs/heads/main/Source.lua"
+
+for attempt = 1, 3 do
+    local ok, result = pcall(function()
+        local source = game:HttpGet(REDZ_URL)
+        if type(source) ~= "string" or #source < 1000 then
+            error("RedzLib source download was empty/invalid")
+        end
+        local fn = loadstring(source)
+        if type(fn) ~= "function" then
+            error("loadstring failed for RedzLib source")
+        end
+        return fn()
+    end)
+    if ok and type(result) == "table" and type(result.MakeWindow) == "function" then
+        RedzLib = result
+        break
+    end
+    warn("[MANI PROP] RedzLib load attempt " .. attempt .. " failed:", result)
+    task.wait(1)
+end
+
+if not RedzLib then
+    warn("[MANI PROP] GUI stopped: RedzLib could not be loaded.")
     return
 end
 
@@ -782,7 +799,7 @@ local function addAuraTab(tab, title, list)
     tab:AddSection(title)
     tab:AddParagraph({
         Title = "MANI PROP ENGINE",
-        Content = "Select an aura. The original V1 aura engine will use your detected props."
+        Text = "Select an aura. The original V1 aura engine will use your detected props."
     })
     for _, key in ipairs(list) do
         local cfg = AllAuraConfigs[key]
@@ -821,7 +838,7 @@ addAuraTab(Tabs.Secret, "💠 Secret Auras", secretList)
 
 -- ========================= SNAKE =========================
 Tabs.Snake:AddSection("🐍 Snake Engine")
-Tabs.Snake:AddParagraph({Title="Snake",Content="Uses the same owned props as V1. Toggle the engine first, then tune movement.")
+Tabs.Snake:AddParagraph({Title="Snake",Text="Uses the same owned props as V1. Toggle the engine first, then tune movement."})
 Tabs.Snake:AddToggle({Name="Snake Enabled", Desc="Start/stop the prop snake", Default=false, Callback=function(v) if v then startSnake() else stopSnake() end})
 Tabs.Snake:AddToggle({Name="Auto Travel", Desc="Snake travels to generated destinations", Default=false, Callback=function(v) snakeAutoTravel=v end})
 Tabs.Snake:AddToggle({Name="Follow Player", Desc="Follow your character when Auto Travel is off", Default=true, Callback=function(v) snakeFollowPlayer=v; if v then snakeAutoTravel=false end end})
@@ -845,7 +862,7 @@ Tabs.Snake:AddButton({Name="Stop Snake", Desc="Stop the snake and release the en
 
 -- ========================== ROPE ==========================
 Tabs.Rope:AddSection("🪢 Rope Engine")
-Tabs.Rope:AddParagraph({Title="Rope",Content="Connect two players with your owned props. Player names can be partial usernames."})
+Tabs.Rope:AddParagraph({Title="Rope",Text="Connect two players with your owned props. Player names can be partial usernames."})
 Tabs.Rope:AddTextBox({Name="Player 1", Default="", PlaceholderText="Username", Callback=function(v) ropeP1=tostring(v) end})
 Tabs.Rope:AddTextBox({Name="Player 2", Default="", PlaceholderText="Username", Callback=function(v) ropeP2=tostring(v) end})
 Tabs.Rope:AddToggle({Name="Include Me", Desc="Use your character as Player 1", Default=false, Callback=function(v) ropeIncludeMe=v end})
@@ -858,18 +875,18 @@ Tabs.Rope:AddSlider({Name="Wave Speed", Min=0.5, Max=8, Increase=0.1, Default=3,
 
 -- ========================= SETTINGS ========================
 Tabs.Settings:AddSection("⚙️ MANI PROP")
-local propInfo = Tabs.Settings:AddParagraph({Title="Props",Content="Scanning..."})
-local profileInfo = Tabs.Settings:AddParagraph({Title="👤 Profile",Content="Loading..."})
+local propInfo = Tabs.Settings:AddParagraph({Title="Props",Text="Scanning..."})
+local profileInfo = Tabs.Settings:AddParagraph({Title="👤 Profile",Text="Loading..."})
 
 local function updateInfo()
     pcall(function()
         findProps()
-        propInfo:SetContent(tostring(#propList) .. " props found • using " .. tostring(totalProps))
+        propInfo:Set(tostring(#propList) .. " props found • using " .. tostring(totalProps))
         local aura="None"
         if currentAura and AllAuraConfigs[currentAura] then aura=AllAuraConfigs[currentAura].name end
         local status = "Ready"
         if snakeRunning then status="Snake Active" elseif ropeRunning then status="Rope Active" elseif auraRunning then status="Aura Active" end
-        profileInfo:SetContent("Display: "..LocalPlayer.DisplayName.."\nUsername: @"..LocalPlayer.Name.."\nStatus: "..status.."\nAura: "..aura)
+        profileInfo:Set("Profile", "Display: "..LocalPlayer.DisplayName.."\nUsername: @"..LocalPlayer.Name.."\nStatus: "..status.."\nAura: "..aura)
     end)
 end
 
@@ -880,42 +897,13 @@ Tabs.Settings:AddButton({Name="Stop Rope", Desc="Stop rope movement", Callback=f
 Tabs.Settings:AddButton({Name="STOP ALL", Desc="Stop aura, snake and rope", Callback=function() stopAura(); stopSnake(); stopRope() end})
 Tabs.Settings:AddButton({Name="Reset Props", Desc="Stop aura and return props to your character", Callback=function() resetProps() end})
 Tabs.Settings:AddButton({Name="Find Props", Desc="Print detected prop count", Callback=function() findProps(); print("[MANI PROP] Found",#propList,"props; using",totalProps) end})
-Tabs.Settings:AddParagraph({Title="MANI GUI V.1",Content="by MANISH_K05\nOriginal V1 prop engine + native RedzLib V5 controls"})
+Tabs.Settings:AddParagraph({Title="MANI GUI V.1",Text="by MANISH_K05\nOriginal V1 prop engine + native RedzLib controls"})
 
 -- Native RedzLib minimize/reopen button.
 Window:AddMinimizeButton({Button = {Image = "rbxassetid://10734896206"}, Corner = true})
 
--- Native RedzLib Discord component. Replace invite if needed.
-pcall(function()
-    Tabs.Settings:AddDiscordInvite({
-        Title="MANI Community",
-        Desc="MANI PROP GUI V.1",
-        Logo="rbxassetid://6031071053",
-        Invite="https://discord.gg/YOUR_INVITE"
-    })
-end)
-
 -- Initial scan and live status refresh.
 findProps()
 updateInfo()
-task.spawn(function()
-    while task.wait(1) do
-        if not RedzLib then break end
-        updateInfo()
-    end
-end)
-
-LocalPlayer.CharacterAdded:Connect(function()
-    local savedAura=currentAura
-    stopSnake()
-    stopRope()
-    if savedAura then
-        stopAura()
-        task.wait(1)
-        if LocalPlayer.Character then startAura(savedAura) end
-    else
-        stopAura()
-    end
-end)
 
 print("[MANI PROP GUI V.1] Loaded successfully")
