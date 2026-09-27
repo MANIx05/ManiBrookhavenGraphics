@@ -743,419 +743,179 @@ end)
 -- GUI handling
 
 -- ============================================================
--- REDZLIB V5 GUI MIGRATION
--- Original MANI prop/aura/snake/rope engine is kept above.
--- Only the GUI layer is replaced with native RedzLib V5 controls.
+-- MANI PROP GUI V.1 — REDZLIB V5 EDITION
+-- GUI layer only is migrated. Original prop/aura/snake/rope
+-- engine above remains the working engine from MANI PROP V.1.
 -- ============================================================
 
-local RedzLib = loadstring(game:HttpGet(
-    "https://raw.githubusercontent.com/RedzLib/RedzLibV5/refs/heads/main/Source.lua"
-))()
+local RedzLib = nil
+local redzLoaded, redzResult = pcall(function()
+    return loadstring(game:HttpGet("https://raw.githubusercontent.com/RedzLib/RedzLibV5/refs/heads/main/Source.lua"))()
+end)
+if redzLoaded and redzResult then
+    RedzLib = redzResult
+else
+    warn("[MANI PROP] RedzLib V5 failed to load:", redzResult)
+    return
+end
 
 local Window = RedzLib:MakeWindow({
-    Title = "MANI PROP GUI V2",
-    SubTitle = "RedzLib V5 • by MANISH_K05",
+    Title = "MANI PROP GUI V.1",
+    SubTitle = "by MANISH_K05",
+    SaveFolder = "MANI_PROP_GUI_V1"
 })
 
--- ------------------------------------------------------------
--- Helpers
--- ------------------------------------------------------------
-local function notify(title, content)
-    print("[MANI GUI] " .. tostring(title) .. ": " .. tostring(content))
-end
+-- Native RedzLib tabs. No custom replacement GUI is used.
+local Tabs = {}
+Tabs.Common = Window:MakeTab({Name = "🟢 Common", Icon = "sparkles"})
+Tabs.Uncommon = Window:MakeTab({Name = "🔵 Uncommon", Icon = "droplets"})
+Tabs.Rare = Window:MakeTab({Name = "🟣 Rare", Icon = "gem"})
+Tabs.Epic = Window:MakeTab({Name = "🟠 Epic", Icon = "flame"})
+Tabs.Legendary = Window:MakeTab({Name = "🔴 Legendary", Icon = "star"})
+Tabs.Mythic = Window:MakeTab({Name = "🟡 Mythic", Icon = "infinity"})
+Tabs.Secret = Window:MakeTab({Name = "💠 Secret", Icon = "eye"})
+Tabs.Snake = Window:MakeTab({Name = "🐍 Snake", Icon = "move-3d"})
+Tabs.Rope = Window:MakeTab({Name = "🪢 Rope", Icon = "link"})
+Tabs.Settings = Window:MakeTab({Name = "⚙️ Settings", Icon = "settings"})
 
-local function stopEverything()
-    pcall(stopAura)
-    pcall(stopSnake)
-    pcall(stopRope)
-end
-
-local function makeAuraTab(title, icon, colorKey)
-    local tab = Window:MakeTab({title, icon})
+local function addAuraTab(tab, title, list)
     tab:AddSection(title)
     tab:AddParagraph({
-        "MANI PROP",
-        "Select an aura below. Starting a new aura stops the previous aura/snake."
+        Title = "MANI PROP ENGINE",
+        Content = "Select an aura. The original V1 aura engine will use your detected props."
     })
-
-    local entries = {}
-    for key, config in pairs(AllAuraConfigs) do
-        if config.color == colorKey then
-            entries[#entries + 1] = {key = key, name = config.name or key}
+    for _, key in ipairs(list) do
+        local cfg = AllAuraConfigs[key]
+        if cfg then
+            tab:AddButton({
+                Name = cfg.color .. " " .. cfg.name,
+                Desc = "Activate " .. cfg.name,
+                Callback = function()
+                    startAura(key)
+                end
+            })
         end
     end
-    table.sort(entries, function(a,b) return a.name < b.name end)
-
-    for _, item in ipairs(entries) do
-        tab:AddButton({
-            item.name,
-            "Activate " .. item.name,
-            function()
-                startAura(item.key)
-                notify("Aura", item.name .. " activated")
-            end
-        })
-    end
-
-    tab:AddSection("CONTROL")
-    tab:AddButton({
-        "Stop Aura",
-        "Stop the current aura animation",
-        function()
-            stopAura()
-            notify("Aura", "Stopped")
-        end
-    })
-    tab:AddButton({
-        "Reset Props",
-        "Return owned props to your character position",
-        function()
-            if resetProps() then notify("Props", "Reset complete") end
-        end
-    })
-    return tab
 end
 
--- ------------------------------------------------------------
--- Aura tabs: dynamically uses every config from the original file.
--- This avoids losing newly added aura configs.
--- ------------------------------------------------------------
-makeAuraTab("Common", "home", "🟢")
-makeAuraTab("Uncommon", "gem", "🔵")
-makeAuraTab("Rare", "crown", "🟣")
-makeAuraTab("Epic", "flame", "🟠")
-makeAuraTab("Legendary", "star", "🔴")
-makeAuraTab("Mythic", "infinity", "🟡")
-makeAuraTab("Secret", "eye", "💠")
+local commonList = {"SoftGlow","FreshBreeze","CalmRing","TinyOrbit","SimpleHalo","FloatingMist","GentleWave","LightBloom","MiniSpiral","CloudRing","SoftOrbit","BrightCircle","PeaceAura","BreezeHalo","MorningGlow","FloatingStars","LittleGalaxy","DreamRing","PureHalo","SkyBloom"}
+addAuraTab(Tabs.Common, "🟢 Common Auras", commonList)
 
--- ------------------------------------------------------------
--- Snake
--- ------------------------------------------------------------
-local SnakeTab = Window:MakeTab({"Snake", "box"})
-SnakeTab:AddSection("SNAKE ENGINE V3")
-SnakeTab:AddParagraph({
-    "MANI SNAKE",
-    "Up to 25 owned props become one smooth snake."
-})
+local uncommonList = {"AquaOrbit","FrostRing","CrystalWave","WindSpiral","Rainfall","BlueComet","IceHalo","MistSpiral","OceanRing","CloudSpiral","SnowOrbit","SilverBloom","MoonRing","StarOrbit","SkySpiral","FrozenHalo","CrystalOrbit","TidalWave","WinterBloom","ArcticRing"}
+addAuraTab(Tabs.Uncommon, "🔵 Uncommon Auras", uncommonList)
 
-SnakeTab:AddToggle({
-    "Snake Enabled",
-    "Start/stop the snake engine",
-    false,
-    function(v)
-        if v then startSnake() else stopSnake() end
-    end
-})
+local rareList = {"MysticSpiral","PhantomRing","ArcaneOrbit","SoulHalo","AstralBloom","RuneCircle","DreamSpiral","SpiritOrbit","Moonveil","Starveil","EtherRing","MirageOrbit","TwilightHalo","SpectralBloom","MysticCrown","AstralRing","PhantomOrbit","SoulSpiral","ArcaneBloom","Dreamveil"}
+addAuraTab(Tabs.Rare, "🟣 Rare Auras", rareList)
 
-SnakeTab:AddToggle({
-    "Auto Travel",
-    "Move toward generated destinations",
-    false,
-    function(v)
-        snakeAutoTravel = v
-        snakeTarget = nil
-    end
-})
+local epicList = {"SolarCrown","LunarCrown","ThunderRing","FlameOrbit","FrostCrown","StormSpiral","CometHalo","MeteorRing","GalaxyOrbit","NebulaBloom","GravityRing","EnergySpiral","VortexHalo","PlasmaOrbit","SolarSpiral","ThunderCrown","CosmicRing","Starstorm","SupernovaHalo","CelestialOrbit"}
+addAuraTab(Tabs.Epic, "🟠 Epic Auras", epicList)
 
-SnakeTab:AddToggle({
-    "Follow Player",
-    "Keep the snake centered around the player",
-    true,
-    function(v) snakeFollowPlayer = v end
-})
+local legendaryList = {"EclipseCrown","VoidSpiral","InfinityRing","EternalOrbit","DivineHalo","AncientCrown","ImmortalSpiral","RealityRing","DimensionOrbit","TimeflowHalo","CosmicCrown","UniverseSpiral","InfinityBloom","CelestialCrown","EternityRing","AstralDominion","DivineOrbit","RealityHalo","InfiniteSpiral","EternalBloom"}
+addAuraTab(Tabs.Legendary, "🔴 Legendary Auras", legendaryList)
 
-SnakeTab:AddSlider({
-    "Snake Length", 1, 25, 1, 15,
-    function(v) snakeLength = math.clamp(math.floor(v + 0.5), 1, 25) end
-})
+local mythicList = {"ChaosCrown","AbyssOrbit","OblivionRing","VoidCrown","DarkstarSpiral","BlackholeHalo","EndworldOrbit","PhantomDominion","AbyssalCrown","InfiniteVoid","RealityBreaker","CosmicDestroyer","EternalVoid","DimensionBreak","ChaosSpiral","Voidstorm","BlackstarCrown","OblivionHalo","ZeroPoint","FinalEclipse"}
+addAuraTab(Tabs.Mythic, "🟡 Mythic Auras", mythicList)
 
-SnakeTab:AddSlider({
-    "Travel Speed", 2, 20, 1, 8,
-    function(v) snakeSpeed = v end
-})
+local secretList = {"NOVA15","Fifteenfold","Prophecy","TheCollector","LostFormation","ForbiddenOrbit","UnknownEntity","ZeroGravity","BeyondReality","TheLastAura","HiddenDimension","InfiniteMachinery","AbsoluteZero","Worldbreaker","EternalMachinery","UnknownSignal","The15thRealm","Singularity","Realityexe"}
+addAuraTab(Tabs.Secret, "💠 Secret Auras", secretList)
 
-SnakeTab:AddSlider({
-    "Body Spacing", 10, 40, 1, 22,
-    function(v) snakeSpacing = v / 10 end
-})
+-- ========================= SNAKE =========================
+Tabs.Snake:AddSection("🐍 Snake Engine")
+Tabs.Snake:AddParagraph({Title="Snake",Content="Uses the same owned props as V1. Toggle the engine first, then tune movement.")
+Tabs.Snake:AddToggle({Name="Snake Enabled", Desc="Start/stop the prop snake", Default=false, Callback=function(v) if v then startSnake() else stopSnake() end})
+Tabs.Snake:AddToggle({Name="Auto Travel", Desc="Snake travels to generated destinations", Default=false, Callback=function(v) snakeAutoTravel=v end})
+Tabs.Snake:AddToggle({Name="Follow Player", Desc="Follow your character when Auto Travel is off", Default=true, Callback=function(v) snakeFollowPlayer=v; if v then snakeAutoTravel=false end end})
+Tabs.Snake:AddToggle({Name="Reverse", Desc="Reverse segment order", Default=false, Callback=function(v) snakeReverse=v end})
+Tabs.Snake:AddToggle({Name="Wave", Desc="Add side-to-side body wave", Default=true, Callback=function(v) snakeWave=v end})
+Tabs.Snake:AddToggle({Name="Smooth Turns", Desc="Smooth snake direction changes", Default=true, Callback=function(v) snakeSmoothTurns=v; snakeTurnSmooth=v and 0.18 or 0.5 end})
+Tabs.Snake:AddToggle({Name="Head Lead", Desc="Place the head slightly ahead of you", Default=true, Callback=function(v) snakeHeadLead=v end})
+Tabs.Snake:AddToggle({Name="Hover", Desc="Raise the snake above the ground", Default=false, Callback=function(v) snakeHover=v end})
+Tabs.Snake:AddToggle({Name="Breathing", Desc="Subtle vertical body motion", Default=true, Callback=function(v) snakeBreathing=v end})
+Tabs.Snake:AddToggle({Name="Tail Whip", Desc="Extra motion at the tail", Default=true, Callback=function(v) snakeTailWhip=v end})
+Tabs.Snake:AddToggle({Name="Spiral Travel", Desc="Add spiral travel motion", Default=false, Callback=function(v) snakeSpiralTravel=v end})
+Tabs.Snake:AddToggle({Name="Random Destinations", Desc="Change Auto Travel destinations automatically", Default=true, Callback=function(v) snakeRandomStops=v end})
+Tabs.Snake:AddToggle({Name="Patrol", Desc="Patrol mode uses automatic travel", Default=false, Callback=function(v) snakePatrol=v; snakeAutoTravel=v end})
+Tabs.Snake:AddSlider({Name="Length", Min=1, Max=25, Increase=1, Default=15, Callback=function(v) snakeLength=math.clamp(math.floor(v+0.5),1,25) end})
+Tabs.Snake:AddSlider({Name="Speed", Min=1, Max=25, Increase=1, Default=8, Callback=function(v) snakeSpeed=v end})
+Tabs.Snake:AddSlider({Name="Spacing", Min=0.5, Max=5, Increase=0.1, Default=2.15, Callback=function(v) snakeSpacing=v end})
+Tabs.Snake:AddSlider({Name="Wave Strength", Min=0, Max=3, Increase=0.05, Default=0.65, Callback=function(v) snakeWaveHeight=v end})
+Tabs.Snake:AddSlider({Name="Turn Smoothness", Min=0.03, Max=0.5, Increase=0.01, Default=0.18, Callback=function(v) snakeTurnSmooth=v end})
+Tabs.Snake:AddButton({Name="New Destination", Desc="Pick a new Auto Travel target", Callback=function() local c=getCharacter(); local h=c and c:FindFirstChild("HumanoidRootPart"); if h then snakeTarget=chooseSnakeTarget(h.Position); snakeNextTargetAt=0 end end})
+Tabs.Snake:AddButton({Name="Stop Snake", Desc="Stop the snake and release the engine", Callback=function() stopSnake() end})
 
-SnakeTab:AddToggle({
-    "Realistic Body Wave", "Wave motion through the body", true,
-    function(v) snakeWave = v end
-})
+-- ========================== ROPE ==========================
+Tabs.Rope:AddSection("🪢 Rope Engine")
+Tabs.Rope:AddParagraph({Title="Rope",Content="Connect two players with your owned props. Player names can be partial usernames."})
+Tabs.Rope:AddTextBox({Name="Player 1", Default="", PlaceholderText="Username", Callback=function(v) ropeP1=tostring(v) end})
+Tabs.Rope:AddTextBox({Name="Player 2", Default="", PlaceholderText="Username", Callback=function(v) ropeP2=tostring(v) end})
+Tabs.Rope:AddToggle({Name="Include Me", Desc="Use your character as Player 1", Default=false, Callback=function(v) ropeIncludeMe=v end})
+Tabs.Rope:AddButton({Name="Start Rope", Desc="Start the rope engine", Callback=function() startRope() end})
+Tabs.Rope:AddButton({Name="Stop Rope", Desc="Stop the rope engine", Callback=function() stopRope() end})
+Tabs.Rope:AddSlider({Name="Wave", Min=0, Max=2, Increase=0.05, Default=0.6, Callback=function(v) ropeWave=v end})
+Tabs.Rope:AddSlider({Name="Sag", Min=0.05, Max=0.5, Increase=0.01, Default=0.18, Callback=function(v) ropeSag=v end})
+Tabs.Rope:AddSlider({Name="Max Segments", Min=4, Max=25, Increase=1, Default=15, Callback=function(v) ropeSegments=math.floor(v+0.5) end})
+Tabs.Rope:AddSlider({Name="Wave Speed", Min=0.5, Max=8, Increase=0.1, Default=3, Callback=function(v) ropeSpeed=v end})
 
-SnakeTab:AddSlider({
-    "Wave Strength", 0, 200, 1, 65,
-    function(v) snakeWaveHeight = v / 100 end
-})
+-- ========================= SETTINGS ========================
+Tabs.Settings:AddSection("⚙️ MANI PROP")
+local propInfo = Tabs.Settings:AddParagraph({Title="Props",Content="Scanning..."})
+local profileInfo = Tabs.Settings:AddParagraph({Title="👤 Profile",Content="Loading..."})
 
-SnakeTab:AddToggle({
-    "Smooth Turning", "Smooth heading changes", true,
-    function(v) snakeSmoothTurns = v end
-})
-
-SnakeTab:AddSlider({
-    "Turn Smoothness", 2, 50, 1, 12,
-    function(v) snakeTurnSmooth = v / 100 end
-})
-
-SnakeTab:AddToggle({
-    "Head Lead", "Move the snake head ahead of the player", true,
-    function(v) snakeHeadLead = v end
-})
-
-SnakeTab:AddToggle({
-    "Hover Mode", "Lift the snake above the ground", false,
-    function(v) snakeHover = v end
-})
-
-SnakeTab:AddToggle({
-    "Body Breathing", "Small vertical body movement", true,
-    function(v) snakeBreathing = v end
-})
-
-SnakeTab:AddToggle({
-    "Tail Whip", "Extra tail movement", true,
-    function(v) snakeTailWhip = v end
-})
-
-SnakeTab:AddToggle({
-    "Spiral Travel", "Add spiral movement", false,
-    function(v) snakeSpiralTravel = v end
-})
-
-SnakeTab:AddToggle({
-    "Random Destinations", "Choose new destinations automatically", true,
-    function(v) snakeRandomStops = v; snakeTarget = nil end
-})
-
-SnakeTab:AddToggle({
-    "Reverse Body", "Reverse segment order", false,
-    function(v) snakeReverse = v end
-})
-
-SnakeTab:AddToggle({
-    "Patrol Mode", "Enable auto travel patrol", false,
-    function(v)
-        snakePatrol = v
-        if v then snakeAutoTravel = true end
-    end
-})
-
-SnakeTab:AddButton({
-    "New Random Destination",
-    "Immediately choose a new destination",
-    function()
-        local character = getCharacter()
-        local hrp = character and character:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            snakeTarget = chooseSnakeTarget(hrp.Position)
-            snakeNextTargetAt = 0
-        end
-    end
-})
-
-SnakeTab:AddButton({
-    "Stop Snake",
-    "Stop the snake engine",
-    function() stopSnake() end
-})
-
-SnakeTab:AddSection("PERFORMANCE")
-SnakeTab:AddParagraph({
-    "PERFORMANCE",
-    "Uses your owned props only. Maximum 25 snake segments."
-})
-
--- ------------------------------------------------------------
--- Rope
--- ------------------------------------------------------------
-local RopeTab = Window:MakeTab({"Rope", "link"})
-RopeTab:AddSection("ROPE ENGINE")
-RopeTab:AddParagraph({
-    "MANI ROPE",
-    "Connect props between two players."
-})
-
-RopeTab:AddTextBox({
-    "Player 1",
-    "",
-    false,
-    function(v) ropeP1 = tostring(v) end,
-    "Username"
-})
-
-RopeTab:AddTextBox({
-    "Player 2",
-    "",
-    false,
-    function(v) ropeP2 = tostring(v) end,
-    "Username"
-})
-
-RopeTab:AddToggle({
-    "Include Me",
-    "Use your character as Player 1",
-    false,
-    function(v) ropeIncludeMe = v end
-})
-
-RopeTab:AddButton({
-    "Start Rope",
-    "Start rope animation",
-    function() startRope() end
-})
-
-RopeTab:AddButton({
-    "Stop Rope",
-    "Stop rope animation",
-    function() stopRope() end
-})
-
-RopeTab:AddSlider({
-    "Wave", 0, 200, 1, 60,
-    function(v) ropeWave = v / 100 end
-})
-
-RopeTab:AddSlider({
-    "Sag", 5, 50, 1, 18,
-    function(v) ropeSag = v / 100 end
-})
-
-RopeTab:AddSlider({
-    "Max Segments", 4, 25, 1, 15,
-    function(v) ropeSegments = math.floor(v + 0.5) end
-})
-
-RopeTab:AddSlider({
-    "Wave Speed", 1, 80, 1, 30,
-    function(v) ropeSpeed = v / 10 end
-})
-
--- ------------------------------------------------------------
--- Settings / profile
--- ------------------------------------------------------------
-local SettingsTab = Window:MakeTab({"Settings", "settings"})
-SettingsTab:AddSection("PROFILE")
-
-local propParagraph = SettingsTab:AddParagraph({
-    "Props",
-    "Checking..."
-})
-
-local profileParagraph = SettingsTab:AddParagraph({
-    "PROFILE CARD",
-    "Display: " .. LocalPlayer.DisplayName
-        .. "\nUsername: @" .. LocalPlayer.Name
-        .. "\nUserId: " .. tostring(LocalPlayer.UserId)
-        .. "\nStatus: Ready\nAura: None"
-})
-
-local function updateProfile()
+local function updateInfo()
     pcall(function()
-        local cfg = currentAura and AllAuraConfigs[currentAura]
-        local auraText = cfg and cfg.name or "None"
-        local status = snakeRunning and "Snake Active" or (ropeRunning and "Rope Active" or "Ready")
-        profileParagraph:SetContent(
-            "Display: " .. LocalPlayer.DisplayName
-            .. "\nUsername: @" .. LocalPlayer.Name
-            .. "\nUserId: " .. tostring(LocalPlayer.UserId)
-            .. "\nStatus: " .. status
-            .. "\nAura: " .. auraText
-        )
+        findProps()
+        propInfo:SetContent(tostring(#propList) .. " props found • using " .. tostring(totalProps))
+        local aura="None"
+        if currentAura and AllAuraConfigs[currentAura] then aura=AllAuraConfigs[currentAura].name end
+        local status = "Ready"
+        if snakeRunning then status="Snake Active" elseif ropeRunning then status="Rope Active" elseif auraRunning then status="Aura Active" end
+        profileInfo:SetContent("Display: "..LocalPlayer.DisplayName.."\nUsername: @"..LocalPlayer.Name.."\nStatus: "..status.."\nAura: "..aura)
     end)
 end
 
+Tabs.Settings:AddButton({Name="Refresh Props", Desc="Re-scan WorkspaceCom/001_TrafficCones", Callback=function() findProps(); updateInfo() end})
+Tabs.Settings:AddButton({Name="Stop Aura", Desc="Stop the current aura", Callback=function() stopAura() end})
+Tabs.Settings:AddButton({Name="Stop Snake", Desc="Stop snake movement", Callback=function() stopSnake() end})
+Tabs.Settings:AddButton({Name="Stop Rope", Desc="Stop rope movement", Callback=function() stopRope() end})
+Tabs.Settings:AddButton({Name="STOP ALL", Desc="Stop aura, snake and rope", Callback=function() stopAura(); stopSnake(); stopRope() end})
+Tabs.Settings:AddButton({Name="Reset Props", Desc="Stop aura and return props to your character", Callback=function() resetProps() end})
+Tabs.Settings:AddButton({Name="Find Props", Desc="Print detected prop count", Callback=function() findProps(); print("[MANI PROP] Found",#propList,"props; using",totalProps) end})
+Tabs.Settings:AddParagraph({Title="MANI GUI V.1",Content="by MANISH_K05\nOriginal V1 prop engine + native RedzLib V5 controls"})
+
+-- Native RedzLib minimize/reopen button.
+Window:AddMinimizeButton({Button = {Image = "rbxassetid://10734896206"}, Corner = true})
+
+-- Native RedzLib Discord component. Replace invite if needed.
+pcall(function()
+    Tabs.Settings:AddDiscordInvite({
+        Title="MANI Community",
+        Desc="MANI PROP GUI V.1",
+        Logo="rbxassetid://6031071053",
+        Invite="https://discord.gg/YOUR_INVITE"
+    })
+end)
+
+-- Initial scan and live status refresh.
+findProps()
+updateInfo()
 task.spawn(function()
     while task.wait(1) do
-        pcall(function()
-            if findProps() then
-                propParagraph:SetContent(#propList .. " found • using " .. totalProps)
-            else
-                propParagraph:SetContent("No props")
-            end
-            updateProfile()
-        end)
+        if not RedzLib then break end
+        updateInfo()
     end
 end)
 
-SettingsTab:AddButton({
-    "Refresh Props",
-    "Re-scan owned props",
-    function()
-        findProps()
-        notify("Props", tostring(#propList) .. " found • using " .. tostring(totalProps))
-    end
-})
-
-SettingsTab:AddButton({
-    "Stop Everything",
-    "Stop aura, snake and rope",
-    function()
-        stopEverything()
-        notify("MANI", "All systems stopped")
-    end
-})
-
-SettingsTab:AddButton({
-    "Reset Props",
-    "Reset props to your character position",
-    function() resetProps() end
-})
-
-SettingsTab:AddSection("WINDOW")
-SettingsTab:AddButton({
-    "Minimize / Restore",
-    "Use RedzLib's native minimize button",
-    function()
-        Window:Minimize()
-    end
-})
-
-SettingsTab:AddSection("COMMUNITY")
-SettingsTab:AddParagraph({
-    "MANI HUB DISCORD",
-    "Official community / updates"
-})
-
-SettingsTab:AddDiscordInvite({
-    "MANI HUB",
-    "rbxassetid://10723426722",
-    "https://discord.gg/YOUR_INVITE",
-    Desc = "Official MANI HUB Discord • Updates • Support • Community"
-})
-
-SettingsTab:AddParagraph({
-    "MANI GUI V2",
-    "RedzLib V5 • by MANISH_K05"
-})
-
--- Native RedzLib floating minimize button.
-Window:AddMinimizeButton({
-    Button = {
-        Image = "rbxassetid://10709782230",
-        BackgroundTransparency = 0.1
-    }
-})
-
--- Respawn behavior from the original GUI.
 LocalPlayer.CharacterAdded:Connect(function()
-    local savedAura = currentAura
-
+    local savedAura=currentAura
     stopSnake()
     stopRope()
-
     if savedAura then
         stopAura()
         task.wait(1)
-        if LocalPlayer.Character then
-            startAura(savedAura)
-        end
+        if LocalPlayer.Character then startAura(savedAura) end
     else
         stopAura()
     end
 end)
 
-findProps()
-print("MANI PROP GUI V2 - REDZLIB V5 LOADED")
-
+print("[MANI PROP GUI V.1] Loaded successfully")
